@@ -129,20 +129,23 @@
   .kv dt { color: var(--muted); font-size: 13px; }
   .kv dd { margin: 0; }
 
-  /* Matrix */
+  /* Matrix — bewusst ein Raster, keine Tabelle. Tabellenlayout verhandelt
+     Spaltenbreiten neu, sobald Text umbrechen kann; die Fragenspalte wurde
+     dabei auf ein Wort pro Zeile gequetscht und das Kennzeichen überlappte. */
   .mwrap { overflow-x: auto; padding-bottom: 4px; }
-  table { border-collapse: separate; border-spacing: 3px; }
-  th { font-weight: 400; font-size: 11px; color: var(--muted); font-family: var(--mono); padding-bottom: 6px; }
-  th.q { text-align: left; font-family: var(--sans); font-size: 13.5px; color: var(--ink); padding: 6px 18px 6px 0; width: 270px; line-height: 1.35; vertical-align: middle; }
-  th.q .qt { display: block; white-space: normal; overflow-wrap: anywhere; margin-bottom: 5px; }
-  th.q .qh { display: inline-block; color: var(--muted); font-size: 12px; margin-left: 6px; }
-  .src { display: inline-block; font-size: 11.5px; font-family: var(--mono); border-radius: 4px; padding: 2px 7px; white-space: nowrap; vertical-align: middle; }
-  .cell { width: 22px; height: 22px; border-radius: 4px; background: rgba(var(--b), .08); box-shadow: inset 0 0 0 1px rgba(var(--b), .14); }
-  .cell.best { box-shadow: inset 0 0 0 1px rgba(var(--b), .14), 0 0 0 2px var(--ink); }
-  @media (max-width: 760px) {
-    th.q { width: 190px; font-size: 13px; }
-    .cell { width: 20px; height: 20px; }
+  .mtx { display: grid; gap: 9px 5px; align-items: center; width: max-content; }
+  .mtx .mn { font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center; padding-bottom: 4px; }
+  .mtx .mq {
+    padding: 2px 20px 2px 0;
+    font-size: 13.5px; line-height: 1.35; align-self: stretch;
+    display: flex; flex-direction: column; justify-content: center; gap: 5px;
   }
+  .mtx .mq .qt { overflow-wrap: anywhere; }
+  .mtx .mq .qh { color: var(--muted); font-size: 12px; }
+  .mtx .mc { width: 22px; height: 22px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(var(--b), .14); }
+  .src { display: inline-block; align-self: flex-start; font-size: 11.5px; font-family: var(--mono); border-radius: 4px; padding: 2px 7px; white-space: nowrap; }
+  @media (max-width: 760px) { .mtx .mc { width: 20px; height: 20px; } }
+
   .legend { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-size: 12.5px; color: var(--muted); }
   .ramp { width: 190px; height: 12px; border-radius: 6px; background: linear-gradient(90deg, rgba(var(--b), .14), rgba(var(--b), 1)); box-shadow: inset 0 0 0 1px rgba(var(--b), .14); }
 
@@ -1215,28 +1218,28 @@
       var lo = Math.min.apply(null, alleWerte), hi = Math.max.apply(null, alleWerte);
       var spanne = (hi - lo) || 1;
 
-      h += '<div class="mwrap"><table><thead><tr><th class="q"></th>' +
-        v.cols.map(function (c) { return "<th>" + pad(c + 1) + "</th>"; }).join("") + '</tr></thead><tbody>';
+      var breiteFrage = 270;
+      h += '<div class="mwrap"><div class="mtx" style="grid-template-columns:' + breiteFrage + 'px repeat(' +
+        v.cols.length + ', 22px)">' +
+        '<div></div>' + v.cols.map(function (c) { return '<div class="mn">' + pad(c + 1) + '</div>'; }).join("");
       v.rows.forEach(function (row) {
         var q = row.quelle === "chance" ? '<span class="src chance">Chance · Pos ' + fx(row.pos) + '</span>'
           : row.quelle === "kontrolle" ? '<span class="src kontrolle">Kontrolle · Pos ' + fx(row.pos) + '</span>'
             : row.quelle === "eigen" ? '<span class="src llm">eigene Frage</span>'
               : '<span class="src llm">erzeugt</span>';
-        h += '<tr><th class="q"><span class="qt">' + esc(row.frage) + '</span>' + q +
-          (row.blind ? '<span class="qh">keine Antwort</span>' : row.knapp ? '<span class="qh">unklar welcher</span>' : '') + '</th>';
-        row.row.forEach(function (s, j) {
-          // Wurzel statt linear und Untergrenze 0,14: sonst verschwinden
-          // drei Viertel der Zellen im Weiß und die Matrix wirkt leer.
-          var anteil = Math.max(0, Math.min(1, (s - lo) / spanne));
-          var deckung = s <= 0.0001 ? 0.06 : 0.12 + anteil * 0.88;
+        h += '<div class="mq"><span class="qt">' + esc(row.frage) + '</span>' + q +
+          (row.blind ? '<span class="qh">keine Antwort</span>' : row.knapp ? '<span class="qh">unklar welcher</span>' : '') + '</div>';
+        row.row.forEach(function (s2, j) {
+          var anteil = Math.max(0, Math.min(1, (s2 - lo) / spanne));
+          var deckung = s2 <= 0.0001 ? 0.06 : 0.12 + anteil * 0.88;
           var best = v.cols[j] === row.bestChunk && !row.blind;
           var ka = (r.chunks[v.cols[j]] && r.chunks[v.cols[j]].kernaussage) || "";
-          h += '<td><div class="cell' + (best ? ' best' : '') + '" style="background:' + alpha(deckung) +
-            '" title="' + esc(pad(v.cols[j] + 1) + " · " + (ka || "Abschnitt") + " · Wert " + Math.round(s * 100)) + '"></div></td>';
+          h += '<div class="mc' + (best ? ' best' : '') + '" style="background:' + alpha(deckung) +
+            (best ? ';box-shadow:inset 0 0 0 1px rgba(var(--b),.14), 0 0 0 2px var(--ink)' : '') +
+            '" title="' + esc(pad(v.cols[j] + 1) + " · " + (ka || "Abschnitt") + " · Wert " + Math.round(s2 * 100)) + '"></div>';
         });
-        h += '</tr>';
       });
-      h += '</tbody></table></div>' +
+      h += '</div></div>' +
         '<div class="legend"><span>schwächster Wert (' + Math.round(lo * 100) + ')</span><span class="ramp"></span><span>stärkster (' + Math.round(hi * 100) + ')</span>' +
         '<span style="margin-left:14px">Rahmen = bester Treffer</span></div>' +
         '<h3 class="sub">Welche Spalte ist welcher Abschnitt?</h3>' +

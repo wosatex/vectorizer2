@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vectorizer — findet eine KI die Antwort in deinem Text?</title>
+<meta name="description" content="Prüft, ob Texte in einer Vektordatenbank auffindbar sind: Lücken im eigenen Text und gegenüber Wettbewerbern.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1A4AD6">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Vectorizer">
+<style>
+  :root {
+    --b: 26, 74, 214;          /* ein Blau, alles andere ist Deckkraft */
+    --ink: #111827;
+    --muted: #6B7280;
+    --line: #E8EAEE;
+    --bg: #FFFFFF;
+    --soft: #F7F8FA;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 15.5px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  header { padding: 64px 0 40px; }
+  .brand { font-family: var(--mono); font-size: 13px; letter-spacing: .04em; color: rgba(var(--b), 1); }
+  h1 { font-size: clamp(28px, 4.4vw, 42px); line-height: 1.15; letter-spacing: -.02em; font-weight: 600; margin: 14px 0 0; max-width: 22ch; }
+  .lede { color: var(--muted); max-width: 60ch; margin: 14px 0 0; }
+
+  .grid { display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 56px; align-items: start; padding-bottom: 90px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; gap: 36px; } header { padding: 40px 0 28px; } }
+
+  .rail { position: sticky; top: 24px; }
+  @media (max-width: 900px) { .rail { position: static; } }
+  .field { margin-bottom: 22px; }
+  label { display: block; font-size: 13.5px; font-weight: 500; margin-bottom: 6px; }
+  .opt { color: var(--muted); font-weight: 400; }
+  .in {
+    width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  .in:focus-visible { border-color: rgba(var(--b), .9); box-shadow: 0 0 0 3px rgba(var(--b), .12); }
+  textarea.in { min-height: 180px; resize: vertical; font-size: 14px; line-height: 1.5; }
+  textarea.small { min-height: 84px; }
+  .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+  .hint a { color: rgba(var(--b), 1); }
+
+  .drop {
+    display: block; border: 1px dashed var(--line); border-radius: 8px; padding: 11px 14px;
+    text-align: center; font-size: 13.5px; color: rgba(var(--b), 1); cursor: pointer; margin-bottom: 8px;
+    transition: border-color .15s, background .15s;
+  }
+  .drop:hover { border-color: rgba(var(--b), .7); background: rgba(var(--b), .04); }
+  .src { font-size: 11.5px; font-family: var(--mono); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+  .src.chance { background: rgba(var(--b), .14); }
+  .src.kontrolle { background: rgba(var(--b), .07); }
+  .src.llm { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+
+  .rival { border-left: 2px solid var(--line); padding-left: 12px; margin-bottom: 12px; }
+  .rival-top { display: flex; gap: 8px; margin-bottom: 6px; }
+  .linky { background: none; border: 0; padding: 0; color: rgba(var(--b), 1); font-size: 13px; cursor: pointer; }
+  .linky:hover { text-decoration: underline; }
+
+  .run {
+    width: 100%; border: 0; border-radius: 8px; padding: 13px 16px; cursor: pointer;
+    background: rgba(var(--b), 1); color: #fff; font-weight: 500;
+    transition: background .15s;
+  }
+  .run:hover { background: rgba(var(--b), .85); }
+  .run:disabled { background: rgba(var(--b), .3); cursor: default; }
+  .check { display: flex; gap: 9px; font-size: 13.5px; color: var(--muted); margin-bottom: 20px; }
+  .check input { margin-top: 4px; accent-color: rgba(var(--b), 1); }
+
+  /* Ergebnisse */
+  .start { border: 1px solid var(--line); border-radius: 10px; padding: 26px 28px; }
+  .start h3 { margin: 0 0 14px; font-size: 17px; font-weight: 600; }
+  .start ol { margin: 0; padding-left: 20px; color: var(--muted); }
+  .start li { margin-bottom: 8px; }
+  .status { border-radius: 8px; background: rgba(var(--b), .06); padding: 14px 16px; font-size: 14px; margin-bottom: 24px; }
+  .status.err { background: rgba(var(--b), .04); border: 1px solid rgba(var(--b), .25); }
+
+  section { margin-bottom: 62px; }
+  h2 { font-size: 21px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 4px; }
+  .read { color: var(--muted); font-size: 14px; margin: 0 0 22px; max-width: 66ch; }
+
+  /* Überblick */
+  .scores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
+  @media (max-width: 760px) { .scores { grid-template-columns: 1fr 1fr; gap: 22px; } }
+  .score .v { font-size: 34px; font-weight: 600; letter-spacing: -.03em; line-height: 1; }
+  .score .v small { font-size: 14px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+  .bar { height: 5px; border-radius: 3px; background: rgba(var(--b), .1); margin: 12px 0 10px; }
+  .bar i { display: block; height: 100%; border-radius: 3px; background: rgba(var(--b), 1); }
+  .score b { display: block; font-size: 14px; font-weight: 600; }
+  .score p { margin: 2px 0 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+  .verdict { margin-top: 30px; padding: 18px 20px; border-radius: 10px; background: rgba(var(--b), .05); font-size: 15px; }
+  .verdict b { font-weight: 600; }
+
+  /* Abschnitte */
+  .rows { border-top: 1px solid var(--line); }
+  .row {
+    display: grid; grid-template-columns: 30px 110px 1fr 46px; gap: 16px; align-items: center;
+    width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line);
+    padding: 12px 4px; cursor: pointer;
+  }
+  .row:hover { background: var(--soft); }
+  .row:focus-visible { outline: 2px solid rgba(var(--b), .6); outline-offset: -2px; }
+  .row .n { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .row .t { height: 14px; border-radius: 3px; background: rgba(var(--b), .09); position: relative; }
+  .row .t i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: rgba(var(--b), 1); }
+  .row .k { font-size: 14px; }
+  .row .k span { color: var(--muted); }
+  .row .s { font-size: 15px; font-weight: 600; text-align: right; }
+  .row[aria-expanded="true"] { background: var(--soft); }
+  .detail { border-bottom: 1px solid var(--line); background: var(--soft); padding: 6px 20px 22px 46px; font-size: 14px; }
+  .fix { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .fix b { font-size: 13px; color: rgba(var(--b), 1); }
+  .fix q { display: block; color: var(--muted); margin: 3px 0; font-style: italic; }
+  .chip { display: inline-block; font-size: 12.5px; background: rgba(var(--b), .08); border-radius: 5px; padding: 1px 8px; margin: 0 5px 5px 0; }
+  .kv { display: grid; grid-template-columns: 118px 1fr; gap: 6px 14px; margin-top: 16px; }
+  .kv dt { color: var(--muted); font-size: 13px; }
+  .kv dd { margin: 0; }
+
+  /* Matrix */
+  .mwrap { overflow-x: auto; padding-bottom: 4px; }
+  table { border-collapse: separate; border-spacing: 3px; }
+  th { font-weight: 400; font-size: 11px; color: var(--muted); font-family: var(--mono); padding-bottom: 6px; }
+  th.q { text-align: left; font-family: var(--sans); font-size: 13.5px; color: var(--ink); padding-right: 16px; min-width: 210px; max-width: 320px; line-height: 1.35; }
+  th.q span { color: var(--muted); font-size: 12.5px; }
+  .cell { width: 22px; height: 22px; border-radius: 4px; background: rgba(var(--b), .08); box-shadow: inset 0 0 0 1px rgba(var(--b), .14); }
+  .cell.best { box-shadow: inset 0 0 0 1px rgba(var(--b), .14), 0 0 0 2px var(--ink); }
+  .legend { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-size: 12.5px; color: var(--muted); }
+  .ramp { width: 190px; height: 12px; border-radius: 6px; background: linear-gradient(90deg, rgba(var(--b), .14), rgba(var(--b), 1)); box-shadow: inset 0 0 0 1px rgba(var(--b), .14); }
+
+  .note { border-left: 2px solid rgba(var(--b), 1); padding: 12px 0 12px 16px; margin: 10px 0; }
+  .note b { display: block; font-size: 14.5px; font-weight: 600; }
+  .note p { margin: 3px 0 0; font-size: 13.5px; color: var(--muted); }
+  .note code { font-family: var(--mono); font-size: 12.5px; background: rgba(var(--b), .08); border-radius: 4px; padding: 1px 5px; }
+  h3.sub { font-size: 15px; font-weight: 600; margin: 32px 0 2px; }
+  h3.sub + p.read { margin-bottom: 12px; }
+
+  /* Fragen + Wettbewerb */
+  .q { display: grid; grid-template-columns: 26px 1fr; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 6px; background: rgba(var(--b), 1); }
+  .q strong { font-weight: 600; font-size: 14.5px; }
+  .q p { margin: 2px 0 0; font-size: 13.5px; color: var(--muted); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .card h4 { margin: 0 0 6px; font-size: 15.5px; font-weight: 600; }
+  .card p { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .card .who { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+  ul.plus { list-style: none; padding: 0; margin: 16px 0 0; }
+  ul.plus li { padding: 8px 0 8px 20px; border-bottom: 1px solid var(--line); font-size: 14px; position: relative; }
+  ul.plus li::before { content: "+"; position: absolute; left: 0; color: rgba(var(--b), 1); }
+
+  /* Zitat-Tabelle */
+  .tbl { display: grid; grid-template-columns: 0.95fr 1.25fr 1.3fr; column-gap: 22px; margin-top: 6px; }
+  .tbl > div { padding: 15px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; line-height: 1.5; }
+  .tbl > .hd { padding: 0 0 8px; border-bottom: 1px solid var(--ink); font-size: 12px; color: var(--muted); }
+  .tbl .qq { font-weight: 600; font-size: 14px; }
+  .tbl .qq em { display: block; font-style: normal; font-weight: 400; font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .quote { border-left: 2px solid rgba(var(--b), .35); padding-left: 12px; font-style: italic; color: #374151; }
+  .quote.none { border-left-style: dotted; font-style: normal; color: var(--muted); }
+  .quote small { display: block; font-style: normal; font-size: 12px; color: var(--muted); margin-top: 5px; }
+  .sugg { background: rgba(var(--b), .05); border-radius: 8px; padding: 11px 13px; }
+  .sugg .cp { margin-top: 9px; background: none; border: 0; padding: 0; color: rgba(var(--b), 1); font-size: 12.5px; cursor: pointer; }
+  .sugg .cp:hover { text-decoration: underline; }
+  @media (max-width: 820px) {
+    .tbl { grid-template-columns: 1fr; }
+    .tbl > .hd { display: none; }
+    .tbl > div { border-bottom: 0; padding: 6px 0; }
+    .tbl > div:nth-child(3n+1) { padding-top: 20px; border-top: 1px solid var(--line); }
+    .tbl > div:nth-child(3n) { padding-bottom: 18px; }
+  }
+
+  .cmp { border-collapse: collapse; min-width: 100%; }
+  .cmp th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 400; padding: 0 18px 8px 0; border-bottom: 1px solid var(--ink); white-space: nowrap; }
+  .cmp td { padding: 12px 18px 12px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; vertical-align: top; }
+  .cmp td:first-child { min-width: 200px; max-width: 300px; }
+  .cmp .val { font-variant-numeric: tabular-nums; color: var(--muted); }
+  .cmp .val.win { color: var(--ink); font-weight: 600; }
+  .mini { display: block; height: 4px; border-radius: 2px; background: rgba(var(--b), .1); margin-top: 6px; width: 56px; }
+  .mini i { display: block; height: 100%; border-radius: 2px; background: rgba(var(--b), 1); }
+
+  .ghost { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; cursor: pointer; font-size: 14px; }
+  .ghost:hover { border-color: rgba(var(--b), 1); color: rgba(var(--b), 1); }
+  footer { border-top: 1px solid var(--line); padding: 24px 0 60px; color: var(--muted); font-size: 13px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="brand">Vectorizer</div>
+  <h1>Findet eine KI die Antwort in deinem Text?</h1>
+  <p class="lede">Suchmaschinen und KI-Assistenten lesen keine Seiten, sie holen sich einzelne Absätze. Vectorizer zerlegt deinen Text genauso, prüft jeden Absatz für sich und zeigt, welche Fragen unbeantwortet bleiben — im eigenen Text und im Vergleich zu Wettbewerbern.</p>
+</header>
+
+<div class="wrap grid">
+  <aside class="rail">
+    <div class="field" id="keybox" hidden>
+      <label for="key">API-Schlüssel</label>
+      <input id="key" class="in" type="password" placeholder="sk-ant-…" autocomplete="off">
+      <p class="hint" id="keyhint">Nur nötig, wenn du das Tool selbst hostest. Der Schlüssel bleibt in diesem Tab und geht direkt an Anthropic.</p>
+    </div>
+    <p class="hint" id="keytoggle" style="margin:-8px 0 20px"><button class="linky" type="button" id="showkey">Selbst gehostet? Eigenen API-Schlüssel eintragen</button></p>
+
+    <div class="field">
+      <label for="topic">Thema oder Hauptkeyword</label>
+      <input id="topic" class="in" type="text" placeholder="z. B. Wärmepumpe Förderung Altbau">
+    </div>
+
+    <div class="field">
+      <label for="tabu">Markensprache <span class="opt">— Begriffe, die nicht verwendet werden dürfen</span></label>
+      <input id="tabu" class="in" type="text" placeholder="z. B. Hotel, Resort, Pauschalreise">
+      <p class="hint">Kommagetrennt. Diese Wörter werden nie zur Aufnahme empfohlen, auch wenn sie in Suchanfragen vorkommen. Vorschläge halten sich daran.</p>
+    </div>
+
+    <div class="field">
+      <label for="own">Dein Text</label>
+      <textarea id="own" class="in" placeholder="Volltext einfügen."></textarea>
+      <p class="hint" id="meta">0 Zeichen</p>
+    </div>
+
+    <div class="field">
+      <label for="emb">Embeddings <span class="opt">— echte Vektoren statt Wortabgleich</span></label>
+      <select id="emb" class="in">
+        <option value="keine" selected>Keine — nur Wortabgleich im Browser</option>
+        <option value="gemini">Google Gemini — gemini-embedding-001</option>
+        <option value="openai">OpenAI — text-embedding-3-small</option>
+      </select>
+      <input id="embkey" class="in" type="password" placeholder="Schlüssel des Anbieters" autocomplete="off" style="margin-top:8px" hidden>
+      <p class="hint" id="embinfo">Ohne Embeddings vergleicht Vectorizer nur Wörter und Wortstämme. Synonyme erkennt es dann nicht.</p>
+    </div>
+
+    <div class="field">
+      <label for="target">Zielsystem — wo landet der Text?</label>
+      <select id="target" class="in">
+        <option value="unknown" selected>Unbekannt oder gemischt</option>
+        <option value="google">Google Gemini</option>
+        <option value="openai">OpenAI</option>
+        <option value="voyage">Anthropic / Voyage</option>
+        <option value="voyagectx">Voyage, kontextualisiert</option>
+      </select>
+      <p class="hint" id="tinfo"></p>
+    </div>
+
+    <div class="field">
+      <label for="size">Wie fein soll zerlegt werden?</label>
+      <select id="size" class="in">
+        <option value="120">Klein — 120 Token</option>
+        <option value="220" selected>Mittel — 220 Token</option>
+        <option value="350">Groß — 350 Token</option>
+      </select>
+      <label for="ovl" style="margin-top:14px">Überlappung</label>
+      <select id="ovl" class="in">
+        <option value="0">Keine</option>
+        <option value="15" selected>15 % — wie in den meisten Pipelines</option>
+        <option value="25">25 % — für stark verzahnte Texte</option>
+      </select>
+      <p class="hint">Überlappung nimmt das Ende eines Abschnitts in den nächsten mit, damit ein Gedanke nicht an der Schnittkante zerreißt.</p>
+    </div>
+
+    <div class="field">
+      <label>Wettbewerbertexte <span class="opt">— optional</span></label>
+      <div id="rivals"></div>
+      <button class="linky" id="add" type="button">+ Wettbewerber hinzufügen</button>
+    </div>
+
+    <div class="field">
+      <label>Echte Suchanfragen <span class="opt">— aus der Search Console</span></label>
+      <label class="drop" for="csv">CSV-Datei wählen<input id="csv" type="file" accept=".csv,text/csv,text/plain" hidden></label>
+      <textarea id="gsc" class="in small" placeholder="Oder hier einfügen: CSV aus der GSC, oder je Zeile &#10;anfrage;impressionen;position"></textarea>
+      <input id="brand" class="in" type="text" placeholder="Markenwörter zum Ausfiltern, kommagetrennt" style="margin-top:8px">
+      <p class="hint" id="gscinfo">Noch keine Anfragen geladen. Ohne diese Daten prüft Vectorizer nur selbst erzeugte Fragen.</p>
+    </div>
+
+    <div class="field">
+      <label for="tests">Eigene Testfragen <span class="opt">— optional</span></label>
+      <textarea id="tests" class="in small" placeholder="Eine Frage pro Zeile."></textarea>
+    </div>
+
+    <label class="check">
+      <input type="checkbox" id="ws">
+      <span>Testfragen zusätzlich per Websuche schärfen (dauert länger)</span>
+    </label>
+
+    <button class="run" id="run" type="button">Text prüfen</button>
+    <p class="hint">Dauert 30–90 Sekunden, je nach Textlänge.</p>
+  </aside>
+
+  <main id="out">
+    <div class="start">
+      <h3>So funktioniert es</h3>
+      <ol>
+        <li>Thema eintragen — daraus leitet Vectorizer ab, welche Fragen dein Text beantworten sollte.</li>
+        <li>Deinen Text einfügen.</li>
+        <li>Optional: Texte von bis zu vier Wettbewerbern dazu.</li>
+        <li>Prüfen lassen. Jedes Ergebnis wird in einem Satz erklärt.</li>
+      </ol>
+      <p class="hint" style="margin-top:16px">Läuft hier ohne Einrichtung. Ein Schlüssel wird nur gebraucht, wenn du das Tool auf einer eigenen Adresse betreibst.</p>
+    </div>
+  </main>
+</div>
+
+<footer class="wrap">Vectorizer · Läuft vollständig im Browser · <span id="mode">Modus wird erkannt</span></footer>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]; }); };
+
+  /* =======================================================================
+     KONFIGURATION
+     PROXY_URL: leer lassen für den Normalfall (jeder nutzt seinen eigenen
+     Schlüssel). Nur setzen, wenn du bewusst eine eigene Serverless-Funktion
+     betreibst — dann laufen ALLE Aufrufe über DEIN Budget. Siehe README.
+     ======================================================================= */
+  var PROXY_URL = "";
+  var MODEL = "claude-sonnet-4-6";
+  var MAX_TOKENS = 1000;
+
+  /* Zielsysteme. Chunking macht kein Sprachmodell — es macht deine Pipeline.
+     Was sich unterscheidet, ist das Embedding-Modell dahinter.
+     Stand: August 2026, Angaben aus den Herstellerdokumentationen.
+     zpt = geschätzte Zeichen pro Token für deutschen Text (konservativ). */
+  var TARGETS = {
+    google: {
+      name: "Google Gemini", model: "gemini-embedding-001",
+      maxTok: 2048, dims: "3072 (kürzbar auf 1536 / 768)", zpt: 3.3, ctx: false,
+      asym: "Ja — task_type trennt RETRIEVAL_DOCUMENT von RETRIEVAL_QUERY",
+      hinweis: "Die engste Grenze im Feld: 2048 Token pro Abschnitt. Alles darüber wird standardmäßig ohne Fehlermeldung abgeschnitten. Ein zu langer Absatz verschwindet also halb, ohne dass es jemand merkt."
+    },
+    openai: {
+      name: "OpenAI", model: "text-embedding-3-small / -large",
+      maxTok: 8191, dims: "1536 bzw. 3072 (kürzbar)", zpt: 3.0, ctx: false,
+      asym: "Nein — Frage und Absatz laufen durch dasselbe Modell",
+      hinweis: "Rund 8.000 Token pro Abschnitt, Länge ist praktisch nie das Problem. Weil Frage und Absatz gleich behandelt werden, hilft es besonders, wenn ein Absatz die Frage sprachlich schon aufgreift."
+    },
+    voyage: {
+      name: "Anthropic / Voyage", model: "voyage-4",
+      maxTok: 32000, dims: "1024 (kürzbar auf 256 / 512, erweiterbar auf 2048)", zpt: 3.2, ctx: false,
+      asym: "Ja — input_type trennt document von query",
+      hinweis: "Anthropic hat kein eigenes Embedding-Modell und verweist auf Voyage. 32.000 Token pro Abschnitt — Länge spielt hier keine Rolle mehr."
+    },
+    voyagectx: {
+      name: "Voyage, kontextualisiert", model: "voyage-context-4",
+      maxTok: 120000, dims: "1024 (kürzbar)", zpt: 3.2, ctx: true,
+      asym: "Ja — input_type trennt document von query",
+      hinweis: "Sonderfall: Das Modell sieht beim Kodieren das ganze Dokument und legt den Zusammenhang in jeden einzelnen Abschnittsvektor. Ein Absatz muss deshalb nicht mehr allein verständlich sein — dieser Punkt wird unten deutlich schwächer gewichtet."
+    },
+    unknown: {
+      name: "Unbekannt oder gemischt", model: "strengste verbreitete Grenze",
+      maxTok: 2048, dims: "je nach Modell", zpt: 3.1, ctx: false,
+      asym: "unbekannt",
+      hinweis: "Ohne bekanntes Ziel rechnet Vectorizer mit der strengsten verbreiteten Grenze. Was hier durchgeht, geht überall durch."
+    }
+  };
+  function T() { return TARGETS[$("#target").value] || TARGETS.unknown; }
+  function weights() {
+    // Trägt das Modell den Kontext selbst, zählt Eigenständigkeit kaum noch.
+    return T().ctx ? { e: 0.15, d: 0.45, p: 0.40 } : { e: 0.45, d: 0.30, p: 0.25 };
+  }
+  function toks(chars) { return Math.ceil(chars / T().zpt); }
+
+  var RESULT = null;
+
+  /* ---------- API ---------- */
+  function apiKey() { var el = $("#key"); return el ? el.value.trim() : ""; }
+
+  function revealKey(msg) {
+    $("#keybox").hidden = false;
+    $("#keytoggle").hidden = true;
+    if (msg) $("#keyhint").textContent = msg;
+    $("#mode").textContent = "Modus: eigener API-Schlüssel";
+  }
+  $("#showkey").addEventListener("click", function () { revealKey(); $("#key").focus(); });
+
+  async function ask(prompt, useSearch) {
+    var body = { model: MODEL, max_tokens: MAX_TOKENS, messages: [{ role: "user", content: prompt }] };
+    if (useSearch) body.tools = [{ type: "web_search_20250305", name: "web_search" }];
+
+    var url = PROXY_URL || "https://api.anthropic.com/v1/messages";
+    var headers = { "Content-Type": "application/json" };
+    var k = apiKey();
+    if (!PROXY_URL && k) {
+      headers["x-api-key"] = k;
+      headers["anthropic-version"] = "2023-06-01";
+      headers["anthropic-dangerous-direct-browser-access"] = "true";
+    }
+
+    var res;
+    try {
+      res = await fetch(url, { method: "POST", headers: headers, body: JSON.stringify(body) });
+    } catch (netErr) {
+      if (!k && !PROXY_URL) { revealKey("Von hier aus geht es nicht ohne eigenen Schlüssel. Bitte eintragen."); throw new Error("Keine Verbindung zur API."); }
+      throw new Error("Keine Verbindung zur API. Internetverbindung oder Schlüssel prüfen.");
+    }
+    if (res.status === 401 || res.status === 403) {
+      if (!k) { revealKey("Diese Umgebung erlaubt keine Anfragen ohne eigenen Schlüssel. Trage ihn links ein — in Claude selbst ist er nicht nötig."); throw new Error("Es fehlt ein API-Schlüssel."); }
+      revealKey("Der Schlüssel wurde abgelehnt. Bitte prüfen.");
+      throw new Error("Der API-Schlüssel wurde abgelehnt.");
+    }
+    if (res.status === 429) throw new Error("Zu viele Anfragen. Kurz warten und erneut starten.");
+    if (!res.ok) throw new Error("Die API antwortete mit Status " + res.status + ".");
+    var data = await res.json();
+    return (data.content || []).filter(function (b) { return b.type === "text"; })
+      .map(function (b) { return b.text; }).join("\n");
+  }
+
+  function toJSON(raw) {
+    var t = String(raw || "").replace(/```json/gi, "").replace(/```/g, "").trim();
+    var a = t.indexOf("{"), b = t.lastIndexOf("}");
+    if (a === -1 || b === -1) throw new Error("Keine auswertbare Antwort erhalten.");
+    return JSON.parse(t.slice(a, b + 1));
+  }
+  async function askJSON(prompt, useSearch) {
+    try { return toJSON(await ask(prompt, useSearch)); }
+    catch (e) {
+      if (/Schlüssel|Status|Anfragen/.test(e.message)) throw e;
+      return toJSON(await ask(prompt + "\n\nWICHTIG: Antworte ausschliesslich mit gueltigem, vollstaendigem JSON. Kein Fliesstext, keine Code-Fences.", false));
+    }
+  }
+  async function pool(items, limit, fn, tick) {
+    var out = new Array(items.length), i = 0, done = 0;
+    async function worker() {
+      while (i < items.length) {
+        var n = i++;
+        try { out[n] = await fn(items[n], n); } catch (e) { out[n] = { error: e.message }; }
+        done++; if (tick) tick(done, items.length);
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    return out;
+  }
+
+  /* ---------- Text in Abschnitte zerlegen ---------- */
+  /* Zerlegt wird in geschaetzten Token, nicht in Zeichen - echte Pipelines
+     rechnen in Token. Overlap wie in echten Splittern: das Ende des vorigen
+     Abschnitts wird dem naechsten vorangestellt, an Satzgrenzen. Jeder
+     Abschnitt behaelt seinen "kern" ohne die geerbte Ueberlappung, sonst
+     wuerde die Dublettenerkennung jedes Nachbarpaar melden. */
+  function istUeberschrift(p) {
+    return /^#{1,6}\s/.test(p) || (p.length <= 80 && !/[.!?:;,]$/.test(p) && p.split(/\s+/).length <= 12);
+  }
+  function saetze(p) {
+    return p.replace(/([.!?])\s+(?=[A-ZÄÖÜ0-9])/g, "$1\u0001").split("\u0001")
+      .map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  function chunkText(raw, zielTok, ovlProzent) {
+    var ziel = Math.max(150, Math.round((zielTok || 200) * T().zpt));
+    var ovlZiel = Math.round(ziel * (ovlProzent || 0) / 100);
+    var paras = String(raw || "").replace(/\r/g, "").split(/\n{2,}/)
+      .map(function (s) { return s.trim(); }).filter(Boolean);
+
+    var segs = [];
+    paras.forEach(function (p) {
+      var h = istUeberschrift(p);
+      if (h || p.length <= ziel) { segs.push({ t: p, h: h }); return; }
+      saetze(p).forEach(function (x) { segs.push({ t: x, h: false }); });
+    });
+
+    var chunks = [], cur = [], seed = [];
+    var laenge = function (a) { return a.reduce(function (n, x) { return n + x.t.length + 1; }, 0); };
+    function bau() {
+      if (!cur.length) return;
+      var text = seed.concat(cur).map(function (x) { return x.t; }).join(" ").replace(/[ \t]+/g, " ").trim();
+      var kern = cur.map(function (x) { return x.t; }).join(" ").replace(/[ \t]+/g, " ").trim();
+      if (kern.replace(/\s/g, "").length > 40) {
+        chunks.push({ text: text, kern: kern, ovl: Math.max(0, text.length - kern.length) });
+      }
+      seed = [];
+      if (ovlZiel > 0 && cur.length > 1) {
+        // Aus Sätzen aufbauen, nicht aus ganzen Segmenten: ein Absatz als
+        // Seed sprengt das Budget um ein Vielfaches.
+        var tail = [];
+        cur.slice(1).forEach(function (x) { saetze(x.t).forEach(function (sz) { tail.push(sz); }); });
+        var acc = 0;
+        for (var i = tail.length - 1; i >= 0 && acc < ovlZiel; i--) {
+          var sz = tail[i];
+          if (acc > 0 && acc + sz.length > ovlZiel * 1.4) break;
+          if (acc === 0 && sz.length > ovlZiel * 1.6) {
+            // Einzelner Satz zu lang: an Wortgrenze kürzen.
+            sz = sz.slice(sz.length - Math.round(ovlZiel)).replace(/^\S*\s/, "");
+          }
+          seed.unshift({ t: sz, h: false });
+          acc += sz.length + 1;
+        }
+      }
+      cur = [];
+    }
+    segs.forEach(function (x) {
+      if (x.h && laenge(cur) >= ziel * 0.45) bau();
+      cur.push(x);
+      if (!x.h && laenge(cur) >= ziel) bau();
+    });
+    bau();
+    return chunks;
+  }
+
+  /* ---------- Vektorraum im Browser ---------- */
+  var STOP = new Set(("und oder aber der die das den dem des ein eine einen einem eines ist sind war waren sein wird werden wurde kann koennen muss muessen soll sollen darf hat haben hatte ich du er sie es wir ihr mit fuer von zu im in am an auf bei aus nach ueber unter durch um als auch nicht nur noch schon sehr mehr man sich dass wenn dann wie was wer wo welche welcher welches diese dieser dieses jede jeder alle beim vom zum zur the and for with that this you your are our").split(" "));
+  function fold(s) { return String(s || "").toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss"); }
+  function stem(w) {
+    var m = w.match(/^(.*?)(erungen|ungen|erung|heiten|keiten|lichen|ischen|nisse|liche|heit|keit|lich|isch|ende|ern|end|ung|nis|en|er|es|em|st|n|s|e)$/);
+    return m && m[1].length >= 4 ? m[1] : w;
+  }
+  function tok(s) {
+    return fold(s).replace(/[^a-z0-9\s-]/g, " ").split(/[\s-]+/)
+      .filter(function (w) { return w.length > 2 && !STOP.has(w) && !/^\d{1,2}$/.test(w); })
+      .map(stem);
+  }
+  // tok() liefert Wortstämme ("stromkost", "kinderbetreu"). Für die Anzeige
+  // braucht es das Originalwort zurück, sonst steht dort Kauderwelsch.
+  function wortKarte(s) {
+    var karte = {};
+    String(s || "").split(/\s+/).forEach(function (w) {
+      var sauber = w.replace(/^[^\wÄÖÜäöüß]+/, "").replace(/[^\wÄÖÜäöüß]+$/, "");
+      if (!sauber) return;
+      tok(sauber).forEach(function (t) { if (!karte[t]) karte[t] = sauber; });
+    });
+    return karte;
+  }
+  function index(docs) {
+    var df = new Map();
+    docs.forEach(function (d) { new Set(d).forEach(function (t) { df.set(t, (df.get(t) || 0) + 1); }); });
+    return { df: df, n: docs.length };
+  }
+  function vec(tokens, ix) {
+    var tf = new Map();
+    tokens.forEach(function (t) { tf.set(t, (tf.get(t) || 0) + 1); });
+    var v = new Map(), norm = 0;
+    tf.forEach(function (c, t) {
+      var d = ix.df.get(t); if (!d) return;
+      var w = (1 + Math.log(c)) * Math.log((ix.n + 1) / (d + 0.5));
+      v.set(t, w); norm += w * w;
+    });
+    norm = Math.sqrt(norm) || 1;
+    v.forEach(function (w, t) { v.set(t, w / norm); });
+    return v;
+  }
+  // Für Dubletten ohne IDF — IDF gewichtet gerade die geteilten Terme ab
+  // und macht echte Paraphrasen dadurch unsichtbar.
+  function vecTF(tokens) {
+    var tf = new Map();
+    tokens.forEach(function (t) { tf.set(t, (tf.get(t) || 0) + 1); });
+    var v = new Map(), norm = 0;
+    tf.forEach(function (c, t) { var w = 1 + Math.log(c); v.set(t, w); norm += w * w; });
+    norm = Math.sqrt(norm) || 1;
+    v.forEach(function (w, t) { v.set(t, w / norm); });
+    return v;
+  }
+  // Anfragevektor. Begriffe, die im Korpus gar nicht vorkommen, wurden früher
+  // stillschweigend verworfen — dadurch wurde der Wert nur aus dem generischen
+  // Rest berechnet und sah gut aus, obwohl die Frage unbeantwortbar war.
+  // Sie zählen jetzt gedämpft in die Vektorlänge und senken den Wert.
+  // Dämpfung 0,5: an echten Daten gegen Kontroll- und Negativgruppe bestimmt.
+  var DAMPF = 0.5;
+  function vecQuery(tokens, ix) {
+    var tf = new Map();
+    tokens.forEach(function (t) { tf.set(t, (tf.get(t) || 0) + 1); });
+    var v = new Map(), norm = 0, fehlend = [];
+    tf.forEach(function (c, t) {
+      var d = ix.df.get(t);
+      var w = (1 + Math.log(c)) * Math.log((ix.n + 1) / ((d || 0) + 0.5));
+      if (d) { v.set(t, w); norm += w * w; }
+      else { norm += w * w * DAMPF; fehlend.push(t); }
+    });
+    norm = Math.sqrt(norm) || 1;
+    v.forEach(function (w, t) { v.set(t, w / norm); });
+    return { v: v, fehlend: fehlend };
+  }
+  function cos(a, b) {
+    var small = a.size <= b.size ? a : b, big = a.size <= b.size ? b : a, s = 0;
+    small.forEach(function (w, t) { var o = big.get(t); if (o) s += w * o; });
+    return s;
+  }
+  function median(a) {
+    if (!a.length) return 0;
+    var s = a.slice().sort(function (x, y) { return x - y; });
+    return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+  }
+
+  function vectorLayer(chunks, queries, dense) {
+    var live = [];
+    chunks.forEach(function (c, i) { if (!c.error) live.push({ i: i, c: c }); });
+    if (live.length < 2 || !queries.length) return null;
+
+    // Kern statt Volltext: die geerbte Überlappung würde sonst jedes
+    // Nachbarpaar als Dublette melden.
+    var raw = live.map(function (x) { return tok(x.c.kern || x.c.text); });
+    var rich = live.map(function (x) {
+      return tok([x.c.text, x.c.kernaussage, (x.c.entitaeten || []).join(" "),
+        (x.c.terme || []).join(" "), (x.c.terme || []).join(" "),
+        (x.c.fragen || []).join(" ")].join(" "));
+    });
+    var ixRich = index(rich);
+    var vRaw = raw.map(vecTF);
+    var vRich = rich.map(function (d) { return vec(d, ixRich); });
+    var vQ = queries.map(function (q) {
+      var voll = q.frage + " " + (q.terme || []).join(" ");
+      var r2 = vecQuery(tok(voll), ixRich);
+      var karte = wortKarte(voll);
+      r2.fehlendWort = r2.fehlend.map(function (t) { return karte[t] || t; });
+      return r2;
+    });
+
+    var echt = !!(dense && dense.d && dense.q && dense.d.length === live.length && dense.q.length === queries.length);
+
+    // Lexikalische Matrix immer rechnen — sie liefert das Signal "Begriff
+    // fehlt wörtlich", das dichte Vektoren gerade nicht zeigen können.
+    var lexMatrix = vQ.map(function (qv) { return vRich.map(function (dv) { return cos(qv.v, dv); }); });
+    var matrix = echt
+      ? dense.q.map(function (qv) { return dense.d.map(function (dv) { return dot(qv, dv); }); })
+      : lexMatrix;
+    var peak = Math.max(0.0001, Math.max.apply(null, matrix.map(function (r) { return Math.max.apply(null, r); })));
+
+    var rows = matrix.map(function (row, qi) {
+      var rank = row.map(function (s, j) { return { j: j, chunk: live[j].i, s: s }; }).sort(function (a, b) { return b.s - a.s; });
+      var lexBest = Math.max.apply(null, lexMatrix[qi]);
+      return {
+        frage: queries[qi].frage, quelle: queries[qi].quelle || "llm",
+        pos: queries[qi].pos, impr: queries[qi].impr, row: row,
+        fehlend: vQ[qi].fehlendWort || vQ[qi].fehlend, stamm: vQ[qi].fehlend, lexBest: lexBest,
+        best: rank[0].s, bestChunk: rank[0].chunk,
+        margin: rank[0].s - (rank[1] ? rank[1].s : 0), top: rank.slice(0, 3)
+      };
+    });
+
+    // Schwelle: wenn Anfragen mit belegter Top-Position vorliegen, wird sie
+    // aus der Wirklichkeit abgeleitet statt geschätzt. Der schwächste Wert
+    // einer nachweislich funktionierenden Anfrage ist die Untergrenze.
+    var kontrolle = rows.filter(function (r) { return r.quelle === "kontrolle" && r.best > 0; });
+    var floor, floorQuelle;
+    if (kontrolle.length >= 2) {
+      floor = Math.min.apply(null, kontrolle.map(function (r) { return r.best; })) * 0.9;
+      floorQuelle = "kontrolle";
+    } else {
+      floor = echt ? Math.max(0.15, median(rows.map(function (r) { return r.best; })) * 0.8)
+        : Math.max(0.06, median(rows.map(function (r) { return r.best; })) * 0.45);
+      floorQuelle = "median";
+    }
+    rows.forEach(function (r) {
+      r.blind = r.best < floor;
+      r.knapp = !r.blind && r.best > 0 && r.margin < r.best * (echt ? 0.06 : 0.18);
+      // Auseinanderlaufen der beiden Messungen ist selbst ein Befund.
+      r.nurSemantisch = echt && !r.blind && r.fehlend && r.fehlend.length > 0;
+    });
+
+    var dupes = [], simVecs = echt ? (dense.s || dense.d) : null;
+    if (echt && simVecs && simVecs.length === live.length) {
+      // Dichte Ähnlichkeiten liegen alle hoch; Ausreißer statt fester Schwelle.
+      var paare = [];
+      for (var a = 0; a < live.length; a++) {
+        for (var b = a + 1; b < live.length; b++) paare.push({ a: a, b: b, s: dot(simVecs[a], simVecs[b]) });
+      }
+      var werte = paare.map(function (p) { return p.s; });
+      var m = median(werte);
+      var mad = median(werte.map(function (x) { return Math.abs(x - m); })) || 0.01;
+      paare.forEach(function (p) {
+        if (p.s > m + 2.5 * mad && p.s > 0.6) {
+          dupes.push({ a: live[p.a].i, b: live[p.b].i, s: p.s, ka: live[p.a].c.kernaussage, kb: live[p.b].c.kernaussage });
+        }
+      });
+    } else {
+      for (var x1 = 0; x1 < live.length; x1++) {
+        for (var y1 = x1 + 1; y1 < live.length; y1++) {
+          var s1 = cos(vRaw[x1], vRaw[y1]);
+          if (s1 >= 0.36) dupes.push({ a: live[x1].i, b: live[y1].i, s: s1, ka: live[x1].c.kernaussage, kb: live[y1].c.kernaussage });
+        }
+      }
+    }
+    dupes.sort(function (p, q) { return q.s - p.s; });
+
+    var orphans = [];
+    live.forEach(function (x, j) {
+      var best = 0;
+      matrix.forEach(function (row) { if (row[j] > best) best = row[j]; });
+      if (best < floor * 0.8) orphans.push({ i: x.i, k: x.c.kernaussage, note: x.c.score || 0 });
+    });
+    orphans.sort(function (a, b) { return a.note - b.note; });
+
+    return {
+      rows: rows, cols: live.map(function (x) { return x.i; }), peak: peak,
+      floor: floor, floorQuelle: floorQuelle, echt: echt,
+      dupes: dupes.slice(0, 8), orphans: orphans
+    };
+  }
+
+  /* ---------- Suchanfragen aus der Search Console ---------- */
+  var GSC = { rows: [], chance: [], kontrolle: [] };
+
+  function csvLine(line, d) {
+    var out = [], cur = "", q = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (ch === '"') { if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
+      else if (ch === d && !q) { out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out.map(function (s) { return s.trim(); });
+  }
+  // Klicks und Impressionen sind immer ganzzahlig: alle Trenner entfernen.
+  // "3.400" (DE) und "3,400" (EN) ergeben beide 3400.
+  function numInt(s) {
+    var d = String(s == null ? "" : s).replace(/[^\d]/g, "");
+    return d ? parseInt(d, 10) : 0;
+  }
+  // Positionen haben nie Tausendertrenner, aber je nach Land Punkt oder Komma.
+  function numDec(s) {
+    s = String(s == null ? "" : s).replace(/["\s%]/g, "").replace(",", ".");
+    var v = parseFloat(s);
+    return isNaN(v) ? 0 : v;
+  }
+  function parseQueries(text) {
+    var lines = String(text || "").replace(/\r/g, "").split("\n").filter(function (l) { return l.trim(); });
+    if (!lines.length) return [];
+    // Trennzeichen: nicht das häufigste gewinnt, sondern das, das über mehrere
+    // Zeilen dieselbe Spaltenzahl ergibt. Sonst siegt bei DE-Exporten das
+    // Dezimalkomma über das echte Semikolon.
+    var probe = lines.slice(0, 6);
+    var best = { d: ",", score: -1 };
+    [";", "\t", ","].forEach(function (cand) {
+      var counts = probe.map(function (l) { return csvLine(l, cand).length; });
+      var first = counts[0];
+      if (first < 2) return;
+      var stabil = counts.filter(function (n) { return n === first; }).length / counts.length;
+      var score = stabil * 10 + Math.min(first, 6);
+      if (score > best.score) best = { d: cand, score: score };
+    });
+    var d = best.d;
+    var head = csvLine(lines[0], d).map(function (x) { return fold(x); });
+    var iQ = -1, iC = -1, iI = -1, iP = -1;
+    head.forEach(function (h, i) {
+      if (iQ < 0 && /(abfrage|anfrage|query|queries|keyword|suchbegriff|begriff|term)/.test(h)) iQ = i;
+      if (iC < 0 && /(klick|click)/.test(h)) iC = i;
+      if (iI < 0 && /(impress)/.test(h)) iI = i;
+      if (iP < 0 && /(position|rang|rank)/.test(h)) iP = i;
+    });
+    var start = 1;
+    if (iQ < 0) {
+      // Kein Kopf erkannt: Spaltenzahl entscheidet über die Deutung.
+      start = 0; iQ = 0;
+      var cols = csvLine(lines[0], d).length;
+      if (cols >= 5) { iC = 1; iI = 2; iP = 4; }        // GSC-Reihenfolge
+      else if (cols === 4) { iC = 1; iI = 2; iP = 3; }
+      else { iI = 1; iP = 2; }                           // anfrage;impressionen;position
+    }
+    var out = [];
+    for (var i = start; i < lines.length; i++) {
+      var f = csvLine(lines[i], d);
+      var q = (f[iQ] || "").trim();
+      if (!q || q.length < 2) continue;
+      out.push({
+        q: q,
+        clicks: iC >= 0 ? numInt(f[iC]) : 0,
+        impr: iI >= 0 ? numInt(f[iI]) : 0,
+        pos: iP >= 0 ? numDec(f[iP]) : 0
+      });
+    }
+    return out;
+  }
+
+  function bucketQueries(rows, brandRaw) {
+    var brand = String(brandRaw || "").split(",").map(function (s) { return fold(s).trim(); })
+      .filter(function (s) { return s.length > 1; });
+    var seen = {}, clean = [];
+    rows.forEach(function (r) {
+      if (r.impr < 10) return;
+      var f = fold(r.q);
+      for (var i = 0; i < brand.length; i++) if (f.indexOf(brand[i]) !== -1) return;
+      // Varianten desselben Begriffs zusammenfassen, stärkste behalten
+      var k = tok(r.q).slice().sort().join(" ");
+      if (!k) return;
+      if (!seen[k] || seen[k].impr < r.impr) { seen[k] = r; }
+    });
+    Object.keys(seen).forEach(function (k) { clean.push(seen[k]); });
+    var byImpr = function (a, b) { return b.impr - a.impr; };
+    return {
+      rows: clean,
+      // Sichtbar, aber nicht gewonnen: hier liegt der Hebel.
+      chance: clean.filter(function (r) { return r.pos > 7 && r.pos <= 30; }).sort(byImpr).slice(0, 8),
+      // Gute Positionen als externe Wahrheit für die Kalibrierung.
+      kontrolle: clean.filter(function (r) { return r.pos > 0 && r.pos <= 5; }).sort(byImpr).slice(0, 4)
+    };
+  }
+
+  function loadQueries(text) {
+    var parsed = parseQueries(text);
+    var b = bucketQueries(parsed, $("#brand").value);
+    GSC = { rows: b.rows, chance: b.chance, kontrolle: b.kontrolle };
+    var el = $("#gscinfo");
+    if (!parsed.length) { el.textContent = "Keine Anfragen erkannt. Erwartet wird ein GSC-Export mit Spaltenüberschriften, oder je Zeile: anfrage;impressionen;position."; return; }
+    el.textContent = parsed.length + " Anfragen gelesen · " + b.rows.length + " nach Filter · " +
+      b.chance.length + " Chancen (Position 8–30) · " + b.kontrolle.length + " Kontrolle (Position 1–5). Unter 10 Impressionen wird verworfen.";
+  }
+  $("#csv").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () { $("#gsc").value = String(rd.result).slice(0, 400000); loadQueries($("#gsc").value); };
+    rd.onerror = function () { $("#gscinfo").textContent = "Die Datei ließ sich nicht lesen."; };
+    rd.readAsText(f);
+  });
+  $("#gsc").addEventListener("input", function () { loadQueries($("#gsc").value); });
+  $("#brand").addEventListener("input", function () { if ($("#gsc").value.trim()) loadQueries($("#gsc").value); });
+
+  // Markensprache: Begriffe, die bewusst nicht verwendet werden. Ihr Fehlen ist
+  // eine Entscheidung, kein Versäumnis — sie dürfen nie empfohlen werden.
+  function tabuStems() {
+    var out = {};
+    String($("#tabu").value || "").split(",").forEach(function (s) {
+      tok(s).forEach(function (t) { if (t.length > 2) out[t] = s.trim(); });
+    });
+    return out;
+  }
+  // Deutsch bildet Komposita: "clubhotel" muss als "Hotel" gelten, sonst
+  // rutscht genau die Form durch, in der der verbotene Begriff meist auftaucht.
+  function tabuTreffer(stamm, tabu) {
+    if (tabu[stamm]) return tabu[stamm];
+    var keys = Object.keys(tabu);
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i].length >= 4 && stamm.length > keys[i].length && stamm.indexOf(keys[i]) !== -1) return tabu[keys[i]];
+    }
+    return null;
+  }
+  function tabuListe() {
+    return String($("#tabu").value || "").split(",").map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length > 1; });
+  }
+
+  /* Wettbewerbsvergleich.
+     Zwei Entscheidungen, ohne die das Ergebnis nichts wert wäre:
+     1. Ein gemeinsamer Index über alle Texte. Werte aus getrennten Korpora
+        sind nicht vergleichbar, weil IDF und Vokabular auseinanderlaufen.
+     2. Nur Rohtext, keine Doc2Query-Anreicherung. Der eigene Text ist
+        angereichert, fremde Texte wären es nicht — das würde den Vergleich
+        zu unseren Gunsten verfälschen. Symmetrisch schlecht ist fair. */
+  async function vergleich(ownChunks, rivals, queries, ziel, ovl) {
+    var korpora = [{
+      name: "Du", eigen: true,
+      parts: ownChunks.filter(function (c) { return !c.error; }).map(function (c) { return c.text; })
+    }];
+    rivals.forEach(function (r) {
+      korpora.push({
+        name: r.name, eigen: false,
+        parts: chunkText(r.text, ziel, ovl).slice(0, 25).map(function (c) { return c.text; })
+      });
+    });
+    if (korpora.length < 2 || !queries.length) return null;
+
+    // Mit echten Embeddings wird auch hier semantisch verglichen - symmetrisch,
+    // weil alle Texte gleich behandelt werden.
+    var echt = false;
+    if (embAnbieter() !== "keine" && embKey()) {
+      try {
+        var flach = [], grenzen = [];
+        korpora.forEach(function (k) { grenzen.push([flach.length, k.parts.length]); flach = flach.concat(k.parts); });
+        var dv = await embedBatch(flach, "doc");
+        var qvAll = await embedBatch(queries.map(function (q) { return q.frage; }), "query");
+        if (dv && qvAll) {
+          korpora.forEach(function (k, i) { k.emb = dv.slice(grenzen[i][0], grenzen[i][0] + grenzen[i][1]); });
+          queries.forEach(function (q, i) { q._emb = qvAll[i]; });
+          echt = true;
+        }
+      } catch (e) { echt = false; }
+    }
+
+    var alle = [];
+    korpora.forEach(function (k) { k.tokens = k.parts.map(tok); alle = alle.concat(k.tokens); });
+    var ix = index(alle);
+    korpora.forEach(function (k) { k.vecs = k.tokens.map(function (d) { return vec(d, ix); }); });
+
+    var rows = queries.map(function (q) {
+      var qv = vecQuery(tok(q.frage + " " + (q.terme || []).join(" ")), ix);
+      var werte = korpora.map(function (k) {
+        var best = 0, bi = -1;
+        if (echt && k.emb && q._emb) {
+          k.emb.forEach(function (e, i) { var s = dot(q._emb, e); if (s > best) { best = s; bi = i; } });
+        } else {
+          k.vecs.forEach(function (dv2, i) { var s = cos(qv.v, dv2); if (s > best) { best = s; bi = i; } });
+        }
+        return { name: k.name, eigen: !!k.eigen, best: best, idx: bi };
+      });
+      var sortiert = werte.slice().sort(function (a, b) { return b.best - a.best; });
+      var mine = werte[0], sieger = sortiert[0], zweiter = sortiert[1];
+      var urteil = "gleichauf";
+      if (!sieger.eigen && sieger.best > mine.best * 1.25) urteil = "verloren";
+      else if (sieger.eigen && zweiter && mine.best > zweiter.best * 1.25) urteil = "gewonnen";
+      return {
+        frage: q.frage, quelle: q.quelle, pos: q.pos, impr: q.impr,
+        werte: werte, mine: mine, sieger: sieger, urteil: urteil,
+        abstand: mine.best > 0 ? sieger.best / mine.best : (sieger.best > 0 ? 99 : 1)
+      };
+    });
+    return { korpora: korpora, rows: rows, echt: echt };
+  }
+
+  /* ---------- Echte Embeddings ----------
+     Gemini kennt Task-Typen: Anfrage und Dokument werden unterschiedlich
+     kodiert, Ähnlichkeit noch einmal anders. Genau die drei Messungen, die
+     dieses Tool braucht. OpenAI hat das nicht — dort ist alles derselbe Raum.
+     768 Dimensionen statt 3072: laut Googles MTEB-Tabelle 67,99 gegen 68,16,
+     bei einem Viertel der Datenmenge im Browser. */
+  var EMB_DIMS = 768;
+  var GEM_TASK = { doc: "RETRIEVAL_DOCUMENT", query: "RETRIEVAL_QUERY", sim: "SEMANTIC_SIMILARITY" };
+
+  function embAnbieter() { return $("#emb").value; }
+  function embKey() { return ($("#embkey").value || "").trim(); }
+
+  function l2(v) {
+    var n = Math.sqrt(v.reduce(function (s, x) { return s + x * x; }, 0)) || 1;
+    return v.map(function (x) { return x / n; });
+  }
+  function dot(a, b) {
+    var s = 0;
+    for (var i = 0; i < a.length && i < b.length; i++) s += a[i] * b[i];
+    return s;
+  }
+
+  async function embedBatch(texte, art) {
+    var anb = embAnbieter(), key = embKey();
+    if (anb === "keine" || !key || !texte.length) return null;
+    var out = [], groesse = 50;
+    for (var start = 0; start < texte.length; start += groesse) {
+      var teil = texte.slice(start, start + groesse), res, data;
+      if (anb === "gemini") {
+        res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+          body: JSON.stringify({
+            requests: teil.map(function (t) {
+              return {
+                model: "models/gemini-embedding-001",
+                content: { parts: [{ text: String(t).slice(0, 6000) }] },
+                taskType: GEM_TASK[art] || GEM_TASK.doc,
+                outputDimensionality: EMB_DIMS
+              };
+            })
+          })
+        });
+        if (!res.ok) throw new Error("Gemini-Embeddings: Status " + res.status + (res.status === 400 ? " — Schlüssel oder Kontingent prüfen." : ""));
+        data = await res.json();
+        // gemini-embedding-001 normalisiert gekürzte Dimensionen nicht selbst.
+        (data.embeddings || []).forEach(function (e) { out.push(l2(e.values || [])); });
+      } else {
+        res = await fetch("https://api.openai.com/v1/embeddings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+          body: JSON.stringify({ model: "text-embedding-3-small", input: teil.map(function (t) { return String(t).slice(0, 20000); }), dimensions: EMB_DIMS })
+        });
+        if (!res.ok) throw new Error("OpenAI-Embeddings: Status " + res.status);
+        data = await res.json();
+        (data.data || []).sort(function (a, b) { return a.index - b.index; })
+          .forEach(function (e) { out.push(l2(e.embedding || [])); });
+      }
+    }
+    return out.length === texte.length ? out : null;
+  }
+
+  $("#emb").addEventListener("change", function () {
+    var k = embAnbieter() !== "keine";
+    $("#embkey").hidden = !k;
+    $("#embinfo").textContent = !k
+      ? "Ohne Embeddings vergleicht Vectorizer nur Wörter und Wortstämme. Synonyme erkennt es dann nicht."
+      : embAnbieter() === "gemini"
+        ? "Anfrage, Dokument und Ähnlichkeit werden getrennt kodiert (Task-Typen). Der Schlüssel bleibt in diesem Tab. Rechne mit Bruchteilen eines Cents pro Durchlauf."
+        : "Ein Raum für alles — OpenAI trennt Anfrage und Dokument nicht. Der Schlüssel bleibt in diesem Tab.";
+  });
+
+  /* ---------- Verlauf ----------
+     Der eigentliche Grund für die PWA: Läufe überdauern das Schließen des
+     Tabs, damit sich eine Überarbeitung messen lässt. Gespeichert werden nur
+     Kennzahlen, nie die Texte selbst — das hält den Speicher klein und die
+     Inhalte deiner Kunden aus dem Browser-Speicher heraus. */
+  var VKEY = "vectorizer.verlauf.v1";
+  function verlaufLesen() {
+    try { return JSON.parse(localStorage.getItem(VKEY) || "[]"); } catch (e) { return []; }
+  }
+  function verlaufSchreiben(liste) {
+    try { localStorage.setItem(VKEY, JSON.stringify(liste.slice(0, 60))); return true; }
+    catch (e) { return false; }
+  }
+  function verlaufSpeichern(eintrag) {
+    var liste = verlaufLesen();
+    liste.unshift(eintrag);
+    return verlaufSchreiben(liste);
+  }
+  function verlaufSchluessel(topic, text) {
+    // Thema plus grobe Textkennung: erkennt dieselbe Seite über Fassungen hinweg.
+    var t = fold(topic || "").replace(/\s+/g, " ").trim();
+    return t || "ohne-thema";
+  }
+  function letzterLauf(schluessel, ausser) {
+    var liste = verlaufLesen();
+    for (var i = 0; i < liste.length; i++) {
+      if (liste[i].schluessel === schluessel && liste[i].id !== ausser) return liste[i];
+    }
+    return null;
+  }
+  function datumKurz(iso) {
+    try {
+      var d = new Date(iso);
+      return d.toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" }) +
+        ", " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    } catch (e) { return iso; }
+  }
+  var SPEICHER_OK = (function () {
+    try { localStorage.setItem("vectorizer.test", "1"); localStorage.removeItem("vectorizer.test"); return true; }
+    catch (e) { return false; }
+  })();
+
+  /* Service Worker: nur auf einer echten Adresse, nie im eingebetteten Rahmen. */
+  if ("serviceWorker" in navigator && /^https:$/.test(location.protocol)) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () { });
+    });
+  }
+
+  /* ---------- Prompts ---------- */
+  var P = {
+    chunk: function (topic, txt) {
+      return 'Du pruefst, wie gut ein einzelner Textabschnitt als eigenstaendiger Chunk in einer Vektordatenbank funktioniert. Der Chunk wird spaeter isoliert abgerufen - der umgebende Text steht dann NICHT zur Verfuegung.\n\n' +
+        'Thema der Seite: ' + (topic || "unbekannt") + '\n\n' +
+        'Bewerte 0-10:\n' +
+        '- eigenstaendig: Verstaendlich ohne Nachbarabsaetze? Unaufgeloeste Verweise ("das Unternehmen", "dieser Ansatz", "wie oben beschrieben", "hier"), fehlende Subjekte oder Listenfragmente ohne Bezug senken den Wert stark.\n' +
+        '- dichte: Anteil ueberpruefbarer Substanz (Zahlen, Fristen, Bedingungen, Verfahren, Definitionen) gegenueber Werbefloskeln und Allgemeinplaetzen.\n' +
+        '- praezision: Sind Entitaeten, Fachbegriffe, Produkt-, Orts- und Gesetzesnamen ausgeschrieben statt umschrieben?\n\n' +
+        'ABSCHNITT:\n"""\n' + txt + '\n"""\n\n' +
+        'Antworte NUR mit JSON (Deutsch, knapp):\n' +
+        '{"eigenstaendig":0,"dichte":0,"praezision":0,"kernaussage":"max 12 Woerter, was dieser Abschnitt beantwortet","entitaeten":["max 6 im Text genannte Eigennamen/Fachbegriffe/Zahlenfakten"],"terme":["max 8 Suchbegriffe und Synonyme, unter denen jemand diesen Inhalt suchen wuerde, auch wenn sie im Text nicht woertlich stehen"],"fragen":["max 2 Fragen, die genau dieser Abschnitt beantwortet"],"probleme":[{"typ":"Unklarer Verweis|Floskel|Bruchstueck|Vager Begriff|Braucht Kontext","stelle":"kurzes Zitat, max 8 Woerter","fix":"konkrete Umformulierung in einem Satz"}]}\n' +
+        'Maximal 3 Probleme, die gravierendsten zuerst. Keine Probleme = leeres Array.';
+    },
+    expand: function (topic, list) {
+      return 'Thema: "' + (topic || "unbekannt") + '"\n\n' +
+        'Fuer jede Frage: nenne die Begriffe, die in einem guten Antwortabsatz vorkommen muessen - Fachbegriffe, Synonyme, uebliche Umschreibungen, benachbarte Konzepte. Nicht die Frage wiederholen.\n\n' +
+        list.map(function (q, i) { return (i + 1) + ". " + q; }).join("\n") + '\n\n' +
+        'Antworte NUR mit JSON:\n{"queries":[{"i":1,"terme":["max 10 Begriffe"]}]}';
+    },
+    stelle: function (topic, frage, abschnitt, tabu) {
+      return 'Thema: "' + (topic || "unbekannt") + '"\n' +
+        'Frage einer Nutzerin: "' + frage + '"\n\n' +
+        (tabu && tabu.length
+          ? 'MARKENSPRACHE - diese Begriffe sind verboten und duerfen im Vorschlag NICHT vorkommen, auch nicht in Zusammensetzungen oder Beugungen: ' + tabu.join(", ") +
+          '. Falls die Frage einen dieser Begriffe enthaelt, beantworte sie mit der eigenen Bezeichnung des Anbieters statt mit dem verbotenen Wort.\n\n'
+          : '') +
+        'Bestpassender Abschnitt aus dem Text:\n"""\n' + abschnitt.slice(0, 2500) + '\n"""\n\n' +
+        'Aufgabe:\n' +
+        '1. stelle: Zitiere WOERTLICH den Satz oder die zwei Saetze aus dem Abschnitt, die ein KI-Assistent als Antwort auf die Frage ausgeben wuerde. Exakt uebernehmen, nichts umformulieren, nichts ergaenzen, keine Auslassungszeichen. Wenn der Abschnitt die Frage gar nicht beantwortet: leerer String.\n' +
+        '2. guete: "direkt" wenn die Stelle die Frage klar beantwortet, "indirekt" wenn sie nur streift, "keine" wenn nichts passt.\n' +
+        '3. problem: max 12 Woerter, warum die Stelle als zitierte Antwort schwach ist. Leerer String, wenn sie stark ist.\n' +
+        '4. vorschlag: EIN fertig formulierter deutscher Satz (maximal zwei), der die Frage direkt beantwortet und ohne Umgebung verstaendlich ist. Nenne das Subjekt beim Namen statt "wir" oder "das Unternehmen". Erfinde keine Zahlen, Fristen oder Fakten - setze dafuer [eckige Platzhalter].\n\n' +
+        'Antworte NUR mit JSON:\n{"stelle":"","guete":"direkt|indirekt|keine","problem":"","vorschlag":""}';
+    },
+    fremd: function (frage, name, abschnitt, eigenTxt) {
+      return 'Eine Nutzerin sucht: "' + frage + '"\n\n' +
+        'Der Wettbewerber "' + name + '" hat dazu diesen Abschnitt:\n"""\n' + abschnitt.slice(0, 1800) + '\n"""\n\n' +
+        (eigenTxt ? 'Der eigene Text hat dazu nur:\n"""\n' + eigenTxt.slice(0, 1200) + '\n"""\n\n' : 'Der eigene Text hat dazu nichts Passendes.\n\n') +
+        'Aufgabe:\n' +
+        '1. deckt: Was genau beantwortet der fremde Abschnitt, das der eigene nicht beantwortet? Max 20 Woerter, IN EIGENEN WORTEN. Nicht woertlich zitieren, keine Formulierungen uebernehmen.\n' +
+        '2. relevanz: "hoch" wenn es eine kaufentscheidende Information ist, "mittel" wenn hilfreich, "niedrig" wenn Beiwerk.\n' +
+        '3. massnahme: EIN konkreter Satz, was im eigenen Text ergaenzt werden sollte. Keine fremden Formulierungen uebernehmen, keine Zahlen erfinden - [Platzhalter] nutzen.\n\n' +
+        'Antworte NUR mit JSON:\n{"deckt":"","relevanz":"hoch|mittel|niedrig","massnahme":""}';
+    },
+
+    questions: function (topic, txt, search) {
+      return 'Thema: "' + (topic || "unbekannt") + '"\n\n' +
+        (search
+          ? 'Recherchiere kurz im Web, welche Fragen Nutzerinnen und Nutzer zu diesem Thema tatsaechlich stellen. Maximal eine Suche.'
+          : 'Leite aus deinem Wissen ab, welche Fragen Nutzerinnen und Nutzer zu diesem Thema stellen - auch als Prompt an einen KI-Assistenten.') + '\n' +
+        'Pruefe dann, ob der folgende Text diese Fragen beantwortet.\n\n' +
+        'TEXT:\n"""\n' + txt.slice(0, 7000) + '\n"""\n\n' +
+        'Antworte NUR mit JSON, 9 Fragen, sortiert nach Wichtigkeit:\n' +
+        '{"fragen":[{"frage":"...","status":"beantwortet|teilweise|fehlt","hinweis":"max 15 Woerter: was fehlt bzw. wo es steht"}]}';
+    }
+  };
+
+  /* ---------- Darstellung ---------- */
+  var fx = function (n) { return (Math.round(n * 10) / 10).toFixed(1); };
+  var pad = function (n) { return n < 10 ? "0" + n : String(n); };
+  var alpha = function (x) { return "rgba(var(--b), " + Math.max(0, Math.min(1, x)).toFixed(3) + ")"; };
+  function say(msg, err) {
+    $("#out").innerHTML = '<div class="status' + (err ? " err" : "") + '">' + esc(msg) + "</div>";
+  }
+
+  function render(r) {
+    var ok = r.chunks.filter(function (c) { return !c.error; });
+    var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; };
+    var eig = avg(ok.map(function (c) { return c.eigenstaendig; }));
+    var dic = avg(ok.map(function (c) { return c.dichte; }));
+    var pra = avg(ok.map(function (c) { return c.praezision; }));
+    var W = r.w || { e: 0.45, d: 0.30, p: 0.25 };
+    var tot = eig * W.e + dic * W.d + pra * W.p;
+    var maxLen = Math.max.apply(null, r.chunks.map(function (c) { return c.len; }));
+    var z = r.ziel;
+    var zpt = z.zpt;
+    var tokOf = function (chars) { return Math.ceil(chars / zpt); };
+    var zuLang = r.chunks.filter(function (c) { return tokOf(c.len) > z.maxTok; });
+    var h = "";
+
+    /* 0 — Zielsystem */
+    h += '<section><h2>Zielsystem: ' + esc(z.name) + '</h2>' +
+      '<p class="read">Zerlegt wird ein Text nicht vom Sprachmodell, sondern von deiner Pipeline. Unterschiedlich ist das Embedding-Modell dahinter — und dessen Grenzen gelten für deine Abschnitte.</p>' +
+      '<dl class="kv" style="margin-top:0">' +
+      '<dt>Modell</dt><dd>' + esc(z.model) + '</dd>' +
+      '<dt>Grenze je Abschnitt</dt><dd>' + z.maxTok.toLocaleString("de-DE") + ' Token — dein längster: etwa ' + tokOf(maxLen).toLocaleString("de-DE") + '</dd>' +
+      '<dt>Vektorlänge</dt><dd>' + esc(z.dims) + '</dd>' +
+      '<dt>Frage und Absatz</dt><dd>' + esc(z.asym) + '</dd>' +
+      '</dl>' +
+      '<div class="verdict" style="margin-top:20px">' + esc(z.hinweis) + '</div>';
+    if (zuLang.length) {
+      h += '<div class="note" style="margin-top:16px"><b>' + zuLang.length + ' Abschnitt' + (zuLang.length > 1 ? 'e sind' : ' ist') + ' zu lang</b>' +
+        '<p>Abschnitt ' + zuLang.map(function (c) { return "<code>" + pad(r.chunks.indexOf(c) + 1) + "</code>"; }).join(", ") +
+        ' — hier wird der hintere Teil beim Einlesen abgeschnitten. Absatz aufteilen oder eine feinere Zerlegung wählen.</p></div>';
+    }
+    if (z.ctx) {
+      h += '<p class="read" style="margin-top:16px">Weil dieses Modell den Zusammenhang selbst mitkodiert, zählt „Steht für sich" hier nur zu 15 % statt zu 45 %. Dafür wiegen Substanz und benannte Begriffe schwerer.</p>';
+    }
+    h += '</section>';
+
+    /* 1 — Überblick */
+    var urteil = tot >= 7
+      ? "Dein Text ist gut auffindbar. Die meisten Abschnitte funktionieren allein und liefern greifbare Informationen."
+      : tot >= 5
+        ? "Dein Text ist halb auffindbar. Einige Abschnitte ergeben ohne den Rest der Seite keinen Sinn oder bleiben zu allgemein."
+        : "Dein Text ist schwer auffindbar. Viele Abschnitte sind auf den Zusammenhang angewiesen oder sagen nichts Konkretes.";
+    h += '<section><h2>Überblick</h2>' +
+      '<p class="read">Vier Werte von 0 bis 10. Je voller der Balken, desto besser. Der erste Wert fasst die drei anderen zusammen.</p>' +
+      '<div class="scores">' +
+      score(tot, "Auffindbarkeit", "Wie gut findet eine KI hier Antworten?") +
+      score(eig, "Steht für sich", "Versteht man den Absatz, wenn man nur ihn liest?") +
+      score(dic, "Sagt etwas aus", "Enthält er Fakten statt Werbefloskeln?") +
+      score(pra, "Nennt Namen", "Stehen Zahlen, Orte und Begriffe wirklich da?") +
+      '</div><div class="verdict"><b>Kurz gesagt:</b> ' + urteil + '</div>';
+    if (r.vorher) {
+      var delta = tot - r.vorher.gesamt;
+      var richtung = Math.abs(delta) < 0.15 ? "unverändert gegenüber" : (delta > 0 ? "besser als" : "schlechter als");
+      h += '<div class="note" style="margin-top:18px"><b>' +
+        (delta > 0 ? "+" : "") + fx(delta) + ' Punkte ' + esc(richtung) + ' dem Lauf vom ' + esc(datumKurz(r.vorher.datum)) + '</b>' +
+        '<p>Damals ' + fx(r.vorher.gesamt) + ' bei ' + r.vorher.abschnitte + ' Abschnitten' +
+        (r.vorher.blind != null ? ' und ' + r.vorher.blind + ' unbeantworteten Anfragen' : '') +
+        '. Vergleichbar ist das nur bei gleicher Zerlegung und gleicher Messart (' + esc(r.vorher.messart) + ').</p></div>';
+    }
+    h += '</section>';
+
+    /* 2 — Abschnitte */
+    h += '<section><h2>Abschnitt für Abschnitt</h2>' +
+      '<p class="read">So würde eine Vektordatenbank deinen Text zerschneiden — ' + r.chunks.length +
+      ' Teile bei ' + r.target + ' Token Ziellänge' + (r.ovl ? ' und ' + r.ovl + ' % Überlappung' : ' ohne Überlappung') +
+      '. Der Balken zeigt die Länge, die Zahl rechts die Note. Klick auf eine Zeile für die konkreten Verbesserungen.</p><div class="rows" id="rows">';
+    r.chunks.forEach(function (c, i) {
+      if (c.error) {
+        h += '<div class="row"><span class="n">' + pad(i + 1) + '</span><span class="t"></span><span class="k"><span>Nicht ausgewertet: ' + esc(c.error) + '</span></span><span class="s">—</span></div>';
+        return;
+      }
+      h += '<button class="row" type="button" data-i="' + i + '" aria-expanded="false">' +
+        '<span class="n">' + pad(i + 1) + '</span>' +
+        '<span class="t"><i style="width:' + Math.max(8, Math.round((c.len / maxLen) * 100)) + '%;background:' + alpha(0.25 + c.score / 13) + '"></i></span>' +
+        '<span class="k">' + esc(c.kernaussage || "—") +
+        (c.probleme && c.probleme.length ? ' <span>· ' + c.probleme.length + ' Hinweis' + (c.probleme.length > 1 ? 'e' : '') + '</span>' : '') +
+        '</span><span class="s">' + fx(c.score) + '</span></button>' +
+        '<div class="detail" data-d="' + i + '" hidden>' + detail(c) + '</div>';
+    });
+    h += '</div></section>';
+
+    /* 3 — Matrix */
+    if (r.vector) {
+      var v = r.vector;
+      var blind = v.rows.filter(function (x) { return x.blind; });
+      var knapp = v.rows.filter(function (x) { return x.knapp; });
+      h += '<section><h2>Welche Frage findet welchen Abschnitt?</h2>' +
+        '<p class="read">Jede Zeile ist eine Frage, jede Spalte einer deiner Abschnitte. Je kräftiger das Blau, desto besser passt der Abschnitt zur Frage. Der umrandete Punkt ist der Abschnitt, den eine KI ausliefern würde. Eine fast leere Zeile heißt: Auf diese Frage hat dein Text keine Antwort.</p>' +
+        '<p class="read"><b>Gemessen mit ' + (v.echt ? 'echten Embeddings' : 'Wortabgleich im Browser') + '.</b> Schwelle bei ' + Math.round(v.floor * 100) + ' — ' +
+        (v.floorQuelle === "kontrolle"
+          ? 'abgeleitet aus deinen Anfragen mit belegter Top-Position: Was für eine nachweislich funktionierende Anfrage reicht, gilt als Untergrenze. Das ist keine Schätzung mehr.'
+          : 'geschätzt, weil keine zwei Anfragen mit belegter Top-Position vorliegen. Lade Search-Console-Daten, dann wird die Schwelle aus der Wirklichkeit abgeleitet.') + '</p>' +
+        '<div class="mwrap"><table><thead><tr><th class="q"></th>' +
+        v.cols.map(function (c) { return "<th>" + pad(c + 1) + "</th>"; }).join("") + '</tr></thead><tbody>';
+      v.rows.forEach(function (row) {
+        var q = row.quelle === "chance" ? '<span class="src chance">Chance · Pos ' + fx(row.pos) + '</span>'
+          : row.quelle === "kontrolle" ? '<span class="src kontrolle">Kontrolle · Pos ' + fx(row.pos) + '</span>'
+            : row.quelle === "eigen" ? '<span class="src llm">eigene Frage</span>'
+              : '<span class="src llm">erzeugt</span>';
+        h += '<tr><th class="q">' + esc(row.frage) + '<br>' + q + ' ' +
+          (row.blind ? '<span>— keine Antwort</span>' : row.knapp ? '<span>— unklar welcher</span>' : '') + '</th>';
+        row.row.forEach(function (s, j) {
+          // Wurzel statt linear und Untergrenze 0,14: sonst verschwinden
+          // drei Viertel der Zellen im Weiß und die Matrix wirkt leer.
+          var anteil = Math.max(0, Math.min(1, s / v.peak));
+          var deckung = s <= 0.0001 ? 0.06 : 0.14 + Math.sqrt(anteil) * 0.86;
+          var best = v.cols[j] === row.bestChunk && !row.blind;
+          h += '<td><div class="cell' + (best ? ' best' : '') + '" style="background:' + alpha(deckung) +
+            '" title="Abschnitt ' + pad(v.cols[j] + 1) + ' · ' + Math.round(s * 100) + '"></div></td>';
+        });
+        h += '</tr>';
+      });
+      h += '</tbody></table></div>' +
+        '<div class="legend"><span>passt kaum</span><span class="ramp"></span><span>passt genau</span><span style="margin-left:14px">Rahmen = bester Treffer · Zahl beim Überfahren</span></div>';
+
+      if (blind.length) {
+        h += '<h3 class="sub">Fragen ohne Antwort</h3><p class="read">Für diese Fragen gibt es in deinem Text keinen Absatz, den eine KI zitieren könnte. Das sind die Lücken, die du zuerst füllen solltest.</p>';
+        blind.forEach(function (x) {
+          h += '<div class="note"><b>' + esc(x.frage) + '</b><p>Kein Abschnitt kommt nah genug heran. Schreib einen eigenen Absatz, der genau diese Frage direkt beantwortet.</p></div>';
+        });
+      }
+      if (knapp.length) {
+        h += '<h3 class="sub">Unklar, welcher Abschnitt gewinnt</h3><p class="read">Hier passen mehrere Absätze fast gleich gut. Welcher ausgeliefert wird, ist Zufall — und der schwächere gewinnt genauso oft.</p>';
+        knapp.forEach(function (x) {
+          h += '<div class="note"><b>' + esc(x.frage) + '</b><p>Abschnitte ' +
+            x.top.map(function (t) { return "<code>" + pad(t.chunk + 1) + "</code>"; }).join(", ") +
+            ' liegen fast gleichauf. Mach einen davon zur klaren Antwort und kürze die anderen.</p></div>';
+        });
+      }
+      var chancen = v.rows.filter(function (x) { return x.quelle === "chance"; });
+      if (chancen.length) {
+        h += '<h3 class="sub">Wo Google dich schon sieht, du aber nicht gewinnst</h3>' +
+          '<p class="read">Diese Anfragen bringen dir Impressionen auf Position 8 bis 30. Google hält deine Seite für relevant, liefert sie aber nicht vorne aus. Fehlt hier eine zitierfähige Stelle, liegt der Hebel offen.</p>';
+        chancen.sort(function (a, b) { return a.best - b.best; }).forEach(function (x) {
+          h += '<div class="note" style="border-left-color:' + alpha(x.blind ? 1 : 0.3) + '"><b>' + esc(x.frage) +
+            '</b><p>Position ' + fx(x.pos) + ' · ' + (x.impr || 0).toLocaleString("de-DE") + ' Impressionen · ' +
+            (x.blind ? 'kein Abschnitt deckt das ab — hier fehlt Text' : 'stärkster Abschnitt ist ' + pad(x.bestChunk + 1)) + '</p></div>';
+        });
+      }
+
+      var kontrolle = v.rows.filter(function (x) { return x.quelle === "kontrolle"; });
+      if (kontrolle.length) {
+        h += '<h3 class="sub">Abgleich mit der Wirklichkeit</h3>' +
+          '<p class="read">Für diese Anfragen stehst du laut Search Console auf Position 1 bis 5 — dein Text funktioniert dort nachweislich. Meldet Vectorizer hier trotzdem einen schwachen Wert, liegt der Fehler an der Messung, nicht am Text. Das ist die Grundlage, um die Schwellen zu justieren.</p>';
+        kontrolle.forEach(function (x) {
+          var passt = !x.blind;
+          h += '<div class="note" style="border-left-color:' + alpha(passt ? 0.3 : 1) + '"><b>' + esc(x.frage) +
+            '</b><p>Google: Position ' + fx(x.pos) + ' · Vectorizer: ' + Math.round(x.best * 100) + ' von ' +
+            Math.round(v.floor * 100) + ' nötig — ' + (passt ? 'stimmt überein' : 'widerspricht sich, Schwelle vermutlich zu streng') + '</p></div>';
+        });
+      }
+
+      var tabu = r.tabu || {};
+      var fehltRows = v.rows.map(function (x) {
+        var echt = [], gesperrt = [];
+        (x.stamm || x.fehlend || []).forEach(function (t, idx) {
+          var hit = tabuTreffer(t, tabu);
+          if (hit) gesperrt.push(hit);
+          else echt.push((x.fehlend && x.fehlend[idx]) || t);
+        });
+        return { x: x, echt: echt, gesperrt: gesperrt };
+      });
+      var fehlt = fehltRows.filter(function (f) { return f.echt.length; });
+      if (fehlt.length) {
+        h += '<h3 class="sub">Begriffe, die in deinem Text gar nicht vorkommen</h3>' +
+          '<p class="read">Diese Wörter stehen in der Anfrage, aber nirgends auf deiner Seite. Das ist kein Fehler an sich — Google versteht Synonyme. Aber jedes fehlende Wort ist ein Anker, den du verschenkst.</p>';
+        fehlt.slice(0, 8).forEach(function (f) {
+          h += '<div class="note"><b>' + esc(f.x.frage) + '</b><p>Fehlt wörtlich: ' +
+            f.echt.map(function (t) { return '<code>' + esc(t) + '</code>'; }).join(" ") +
+            (f.x.quelle === "kontrolle" ? ' — trotzdem Position ' + fx(f.x.pos) + ', hier trägt die Bedeutung, nicht das Wort.' : '') +
+            '</p></div>';
+        });
+      }
+      var nurSem = v.rows.filter(function (x) { return x.nurSemantisch; });
+      if (nurSem.length) {
+        h += '<h3 class="sub">Bedeutung trägt, Wortlaut fehlt</h3>' +
+          '<p class="read">Hier findet das Embedding eine passende Stelle, obwohl Begriffe aus der Anfrage nirgends wörtlich stehen. Beide Messungen laufen absichtlich parallel — wo sie auseinandergehen, liegt der Unterschied zwischen Verstehen und Nachschlagen. Handlungsbedarf besteht nur, wenn du den Wortlaut aus anderen Gründen brauchst.</p>';
+        nurSem.slice(0, 6).forEach(function (x) {
+          h += '<div class="note" style="border-left-style:dotted"><b>' + esc(x.frage) + '</b><p>Semantisch ' +
+            Math.round(x.best * 100) + ', wörtlich nur ' + Math.round(x.lexBest * 100) + '. Fehlt im Wortlaut: ' +
+            x.fehlend.slice(0, 5).map(function (t) { return '<code>' + esc(t) + '</code>'; }).join(" ") + '</p></div>';
+        });
+      }
+
+      var gesperrtRows = fehltRows.filter(function (f) { return f.gesperrt.length; });
+      if (gesperrtRows.length) {
+        h += '<h3 class="sub">Bewusst nicht verwendet</h3>' +
+          '<p class="read">Hier fehlt ein Wort, das laut deiner Markensprache auch fehlen soll. Nicht aufnehmen. Wenn du trotzdem gefunden werden willst, gehört die Brücke an eine andere Stelle — etwa eine Frage im FAQ, die den Unterschied erklärt, statt den Begriff als Selbstbezeichnung zu übernehmen.</p>';
+        gesperrtRows.slice(0, 6).forEach(function (f) {
+          h += '<div class="note" style="border-left-style:dotted"><b>' + esc(f.x.frage) + '</b><p>Gesperrt: ' +
+            f.gesperrt.filter(function (t, i, a) { return a.indexOf(t) === i; })
+              .map(function (t) { return '<code>' + esc(t) + '</code>'; }).join(" ") +
+            (f.x.quelle === "kontrolle" || f.x.quelle === "chance"
+              ? ' — Position ' + fx(f.x.pos) + ' ohne dieses Wort. Der Verzicht kostet hier nichts.' : '') +
+            '</p></div>';
+        });
+      }
+
+      if (v.dupes.length) {
+        h += '<h3 class="sub">Absätze, die sich gegenseitig im Weg stehen</h3><p class="read">Diese Paare sagen weitgehend dasselbe. Sie konkurrieren um denselben Treffer und schwächen sich dabei gegenseitig. Gemessen wird nur der eigene Kern jedes Abschnitts — die bewusste Überlappung zählt nicht als Dublette.' +
+          (v.echt ? ' Bei echten Embeddings liegen alle Werte hoch, deshalb werden statistische Ausreißer gemeldet statt eines festen Grenzwerts.' : '') + '</p>';
+        v.dupes.forEach(function (d) {
+          h += '<div class="note" style="border-left-color:' + alpha(0.35 + d.s) + '"><b><code>' + pad(d.a + 1) + '</code> und <code>' + pad(d.b + 1) +
+            '</code> überschneiden sich zu ' + Math.round(d.s * 100) + '%</b><p>' + esc(d.ka || "—") + ' / ' + esc(d.kb || "—") +
+            '. Zusammenlegen oder klar voneinander abgrenzen.</p></div>';
+        });
+      }
+      if (v.orphans.length) {
+        h += '<h3 class="sub">Absätze, die niemand findet</h3><p class="read">Zu diesen Absätzen passt keine der geprüften Fragen. Bei schwacher Note ist es Füllmaterial, das du streichen kannst. Bei guter Note fehlt eher die passende Frage in der Liste — dann trag sie links als eigene Testfrage nach.</p>';
+        v.orphans.forEach(function (o) {
+          h += '<div class="note" style="border-left-color:' + alpha(Math.max(0.15, 1 - o.note / 10)) + '"><b><code>' + pad(o.i + 1) + '</code> ' + esc(o.k || "—") + '</b><p>Note ' + fx(o.note) +
+            ' — ' + (o.note < 5 ? 'schwacher Absatz ohne passende Frage. Streichen oder konkret machen.' : 'inhaltlich in Ordnung, aber von keiner Frage erreicht. Passende Testfrage ergänzen.') + '</p></div>';
+        });
+      }
+      h += '</section>';
+    }
+
+    /* 3b — Konkrete Stellen */
+    if (r.stellen && r.stellen.length) {
+      var schwach = r.stellen.filter(function (s) { return s.guete !== "direkt"; }).length;
+      h += '<section><h2>Was eine KI aus deinem Text zitieren würde</h2>' +
+        '<p class="read">Links die Frage, in der Mitte die Stelle aus deinem Text, die als Antwort ausgegeben würde — wörtlich, nicht umformuliert. Rechts ein fertiger Satz, den du übernehmen kannst. ' +
+        (schwach ? schwach + ' von ' + r.stellen.length + ' Stellen beantworten die Frage nicht direkt.' : 'Alle Stellen beantworten ihre Frage direkt.') + '</p>' +
+        '<div class="tbl"><div class="hd">Frage</div><div class="hd">Stelle in deinem Text</div><div class="hd">Vorschlag zum Übernehmen</div>';
+      r.stellen.forEach(function (s, i) {
+        var lbl = s.guete === "direkt" ? "beantwortet die Frage direkt"
+          : s.guete === "indirekt" ? "streift die Frage nur" : "beantwortet die Frage nicht";
+        h += '<div class="qq">' + esc(s.frage) + '<em>' + esc(lbl) +
+          (s.chunk != null && s.stelle ? ' · Abschnitt ' + pad(s.chunk + 1) : '') + '</em></div>';
+        if (s.stelle) {
+          h += '<div><div class="quote">„' + esc(s.stelle) + '“' +
+            (s.woertlich ? '' : '<small>Nicht wortgleich im Text gefunden — sinngemäß wiedergegeben.</small>') +
+            (s.problem ? '<small>Schwäche: ' + esc(s.problem) + '</small>' : '') + '</div></div>';
+        } else {
+          h += '<div><div class="quote none">Keine Stelle vorhanden. Eine KI müsste diese Frage mit deinem Text unbeantwortet lassen — oder sie beim Wettbewerb holen.</div></div>';
+        }
+        h += '<div><div class="sugg">' + esc(s.vorschlag || "—") +
+          (s.verstoss && s.verstoss.length
+            ? '<small style="display:block;margin-top:7px;color:var(--muted)">Achtung: enthält ' +
+            s.verstoss.map(function (t) { return '„' + esc(t) + '“'; }).join(", ") +
+            ' aus deiner Markensprache. Vor der Übernahme ersetzen.</small>' : '') +
+          (s.vorschlag ? '<button class="cp" type="button" data-s="' + i + '">Satz kopieren</button>' : '') +
+          '</div></div>';
+      });
+      h += '</div><p class="read" style="margin-top:14px">Eckige Klammern sind Platzhalter für Zahlen und Fristen, die nur du kennst — die werden bewusst nicht erfunden.</p></section>';
+    }
+
+    /* 4 — Fragenabdeckung */
+    if (r.fragen && r.fragen.length) {
+      var fehlt = r.fragen.filter(function (q) { return q.status === "fehlt"; }).length;
+      h += '<section><h2>Was Leute fragen — und ob du antwortest</h2>' +
+        '<p class="read">Typische Fragen zum Thema. Voller Punkt heißt beantwortet, halbvoll heißt angerissen, blasser Punkt heißt gar nicht. Offen: ' + fehlt + ' von ' + r.fragen.length + '.</p>';
+      r.fragen.forEach(function (q) {
+        var a = q.status === "beantwortet" ? 1 : q.status === "teilweise" ? 0.45 : 0.12;
+        h += '<div class="q"><span class="dot" style="background:' + alpha(a) + '"></span><div><strong>' +
+          esc(q.frage) + '</strong><p>' + esc(q.hinweis || "") + '</p></div></div>';
+      });
+      h += '</section>';
+    }
+
+    /* 5 — Wettbewerb */
+    h += '<section><h2>Wer beantwortet welche Anfrage besser?</h2>';
+    if (!r.cmp) {
+      h += '<p class="read">Für diesen Vergleich fehlen Wettbewerbertexte. Füge links den Text von ein bis vier konkurrierenden Seiten ein und starte erneut. Verglichen wird dann Anfrage für Anfrage, nicht Thema gegen Thema.</p>';
+    } else {
+      var c = r.cmp;
+      var verloren = c.rows.filter(function (x) { return x.urteil === "verloren"; });
+      var gewonnen = c.rows.filter(function (x) { return x.urteil === "gewonnen"; });
+      h += '<p class="read">Dieselben Anfragen, gegen jeden Text einzeln gemessen' +
+        (c.echt ? ' — mit echten Embeddings, alle Texte im selben Modell.' : ' — in einem gemeinsamen Vektorraum, sonst wären die Werte nicht vergleichbar. Alle Texte laufen ohne Anreicherung, damit niemand bevorzugt wird.') + ' Ergebnis: ' +
+        verloren.length + ' Anfragen verloren, ' + gewonnen.length + ' klar gewonnen, ' +
+        (c.rows.length - verloren.length - gewonnen.length) + ' gleichauf.</p>';
+
+      h += '<div class="mwrap"><table class="cmp"><thead><tr><th>Anfrage</th>' +
+        c.korpora.map(function (k) { return '<th>' + esc(k.eigen ? "Du" : k.name) + '</th>'; }).join("") +
+        '<th>Befund</th></tr></thead><tbody>';
+      c.rows.slice().sort(function (a, b) { return b.abstand - a.abstand; }).forEach(function (x) {
+        h += '<tr><td>' + esc(x.frage) +
+          (x.quelle === "chance" ? '<br><span class="src chance">Chance · Pos ' + fx(x.pos) + '</span>'
+            : x.quelle === "kontrolle" ? '<br><span class="src kontrolle">Kontrolle · Pos ' + fx(x.pos) + '</span>' : '') +
+          '</td>';
+        var top = Math.max.apply(null, x.werte.map(function (w) { return w.best; })) || 1;
+        x.werte.forEach(function (w) {
+          h += '<td class="val' + (w.best >= top ? ' win' : '') + '">' + Math.round(w.best * 100) +
+            '<span class="mini"><i style="width:' + Math.round((w.best / top) * 100) + '%"></i></span></td>';
+        });
+        h += '<td>' + (x.urteil === "verloren" ? '<b>' + esc(x.sieger.name) + ' vorn</b>'
+          : x.urteil === "gewonnen" ? 'du vorn' : 'gleichauf') + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+
+      // Ein Text mit dreimal so vielen Abschnitten hat dreimal so viele
+      // Chancen auf einen guten Treffer. Das ist keine inhaltliche Überlegenheit.
+      var groessen = c.korpora.map(function (k) { return k.parts.length; });
+      var minG = Math.min.apply(null, groessen), maxG = Math.max.apply(null, groessen);
+      if (minG > 0 && maxG / minG >= 2) {
+        h += '<div class="note" style="border-left-style:dotted"><b>Ungleiche Textmengen</b><p>' +
+          c.korpora.map(function (k) { return esc(k.eigen ? "Du" : k.name) + ": " + k.parts.length; }).join(" · ") +
+          ' Abschnitte. Wer mehr Text hat, hat mehr Gelegenheiten für einen Treffer — das ist keine inhaltliche Überlegenheit. Für einen sauberen Vergleich sollten die Texte ähnlich lang sein.</p></div>';
+      }
+
+      var mitDetail = verloren.filter(function (x) { return x.deckt; });
+      if (mitDetail.length) {
+        h += '<h3 class="sub">Was dort steht und bei dir fehlt</h3>' +
+          '<p class="read">In eigenen Worten zusammengefasst, nicht zitiert — fremde Formulierungen gehören nicht in deinen Text. Rechts die Maßnahme.</p>';
+        mitDetail.sort(function (a, b) {
+          var o = { hoch: 0, mittel: 1, niedrig: 2 };
+          return (o[a.relevanz] || 1) - (o[b.relevanz] || 1);
+        }).forEach(function (x) {
+          var a = x.relevanz === "hoch" ? 1 : x.relevanz === "mittel" ? 0.45 : 0.2;
+          h += '<div class="note" style="border-left-color:' + alpha(a) + '"><b>' + esc(x.frage) + '</b>' +
+            '<p><b>' + esc(x.sieger.name) + '</b> deckt ab: ' + esc(x.deckt) +
+            (x.massnahme ? '<br><br><b>Zu tun:</b> ' + esc(x.massnahme) : '') + '</p></div>';
+        });
+      }
+      if (gewonnen.length) {
+        h += '<h3 class="sub">Dein Vorsprung</h3>' +
+          '<p class="read">Hier bist du klar vorn. Nicht verwässern — beim nächsten Umbau als Erstes schützen.</p>';
+        gewonnen.forEach(function (x) {
+          h += '<div class="note" style="border-left-style:dotted"><b>' + esc(x.frage) +
+            '</b><p>Abschnitt ' + pad(x.mine.idx + 1) + ' liegt vorn: ' + Math.round(x.mine.best * 100) +
+            ' gegenüber ' + Math.round((x.werte.filter(function (w) { return !w.eigen; })
+              .sort(function (p, q2) { return q2.best - p.best; })[0] || { best: 0 }).best * 100) + '.</p></div>';
+        });
+      }
+    }
+    h += '</section>';
+
+    var vl = SPEICHER_OK ? verlaufLesen().filter(function (x) { return x.schluessel === r.schluessel; }) : [];
+    if (vl.length >= 1) {
+      h += '<section><h2>Verlauf</h2><p class="read">Frühere Läufe zu diesem Thema, neueste zuerst. Gespeichert werden nur Kennzahlen, nie deine Texte.</p>';
+      var maxG = Math.max.apply(null, vl.map(function (x) { return x.gesamt; })) || 1;
+      vl.slice(0, 12).forEach(function (x, i) {
+        h += '<div class="row" style="cursor:default"><span class="n">' + (i === 0 ? "neu" : pad(i + 1)) + '</span>' +
+          '<span class="t"><i style="width:' + Math.round((x.gesamt / maxG) * 100) + '%;background:' + alpha(0.3 + x.gesamt / 14) + '"></i></span>' +
+          '<span class="k">' + esc(datumKurz(x.datum)) + ' <span>· ' + x.abschnitte + ' Abschnitte · ' +
+          (x.blind != null ? x.blind + ' offen · ' : '') + esc(x.messart) + '</span></span>' +
+          '<span class="s">' + fx(x.gesamt) + '</span></div>';
+      });
+      h += '<div class="foot" style="margin-top:18px"><button class="ghost" id="vexport" type="button">Verlauf sichern</button>' +
+        '<button class="ghost" id="vclear" type="button">Verlauf löschen</button>' +
+        '<span class="note">Safari auf iOS löscht Browserspeicher nach etwa sieben Tagen ohne Nutzung. Für Langzeitvergleiche regelmäßig sichern.</span></div></section>';
+    } else if (!SPEICHER_OK) {
+      h += '<p class="read">Kein Verlauf möglich: Diese Umgebung erlaubt keinen dauerhaften Browserspeicher. Auf einer eigenen Adresse als installierte App funktioniert das.</p>';
+    }
+    h += '<button class="ghost" id="copy" type="button">Ergebnis als Text kopieren</button>';
+
+    $("#out").innerHTML = h;
+    $$("#rows .row[data-i]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var d = $('.detail[data-d="' + b.dataset.i + '"]');
+        var open = b.getAttribute("aria-expanded") === "true";
+        b.setAttribute("aria-expanded", open ? "false" : "true");
+        d.hidden = open;
+      });
+    });
+    $("#copy").addEventListener("click", copyReport);
+    var ve = $("#vexport");
+    if (ve) ve.addEventListener("click", function () {
+      var blob = new Blob([JSON.stringify(verlaufLesen(), null, 2)], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "vectorizer-verlauf.json";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    });
+    var vc = $("#vclear");
+    if (vc) vc.addEventListener("click", function () {
+      if (vc.dataset.sicher !== "1") { vc.dataset.sicher = "1"; vc.textContent = "Wirklich löschen?"; return; }
+      verlaufSchreiben([]); vc.textContent = "Gelöscht"; vc.disabled = true;
+    });
+    $$(".sugg .cp").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var s = RESULT.stellen[+b.dataset.s];
+        if (!s) return;
+        var done = function () { b.textContent = "Kopiert"; setTimeout(function () { b.textContent = "Satz kopieren"; }, 1600); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(s.vorschlag).then(done, function () { fallback(s.vorschlag, done); });
+        else fallback(s.vorschlag, done);
+      });
+    });
+  }
+
+  function score(v, title, desc) {
+    return '<div class="score"><div class="v">' + fx(v) + '<small> / 10</small></div>' +
+      '<div class="bar"><i style="width:' + Math.round(v * 10) + '%"></i></div>' +
+      '<b>' + esc(title) + '</b><p>' + esc(desc) + '</p></div>';
+  }
+
+  function detail(c) {
+    var h = "";
+    (c.probleme || []).forEach(function (p) {
+      h += '<div class="fix"><b>' + esc(p.typ) + '</b>' + (p.stelle ? '<q>„' + esc(p.stelle) + '“</q>' : '') +
+        '<div>' + esc(p.fix) + '</div></div>';
+    });
+    if (!h) h += '<p class="hint" style="margin-top:14px">Keine Auffälligkeiten. Dieser Abschnitt funktioniert so.</p>';
+    h += '<dl class="kv">' +
+      '<dt>Länge</dt><dd>' + c.len.toLocaleString("de-DE") + ' Zeichen · etwa ' + toks(c.len).toLocaleString("de-DE") + ' Token' +
+        (c.ovl ? ' · davon ' + c.ovl.toLocaleString("de-DE") + ' Zeichen aus dem vorigen Abschnitt übernommen' : '') + '</dd>' +
+      '<dt>Steht für sich</dt><dd>' + fx(c.eigenstaendig) + '</dd>' +
+      '<dt>Sagt etwas aus</dt><dd>' + fx(c.dichte) + '</dd>' +
+      '<dt>Nennt Namen</dt><dd>' + fx(c.praezision) + '</dd>' +
+      '<dt>Erkannte Begriffe</dt><dd>' + ((c.entitaeten || []).length
+        ? c.entitaeten.map(function (e) { return '<span class="chip">' + esc(e) + '</span>'; }).join("")
+        : 'keine — dieser Abschnitt ist von tausend ähnlichen nicht zu unterscheiden') + '</dd>' +
+      '<dt>Textanfang</dt><dd><em>' + esc(c.text.slice(0, 180)) + (c.text.length > 180 ? "…" : "") + '</em></dd></dl>';
+    return h;
+  }
+
+  function copyReport() {
+    var r = RESULT; if (!r) return;
+    var m = "# Vectorizer: " + (r.topic || "ohne Thema") + "\n\n";
+    r.chunks.forEach(function (c, i) {
+      if (c.error) return;
+      m += "## Abschnitt " + pad(i + 1) + " — " + fx(c.score) + "/10\n" + (c.kernaussage || "") + "\n";
+      (c.probleme || []).forEach(function (p) { m += "- " + p.typ + ": „" + (p.stelle || "") + "“ → " + p.fix + "\n"; });
+      m += "\n";
+    });
+    if (r.vector) {
+      var b = r.vector.rows.filter(function (x) { return x.blind; });
+      if (b.length) { m += "## Fragen ohne Antwort\n"; b.forEach(function (x) { m += "- " + x.frage + "\n"; }); m += "\n"; }
+      if (r.vector.dupes.length) {
+        m += "## Doppelte Absätze\n";
+        r.vector.dupes.forEach(function (d) { m += "- " + pad(d.a + 1) + " / " + pad(d.b + 1) + " (" + Math.round(d.s * 100) + "%): " + (d.ka || "") + " / " + (d.kb || "") + "\n"; });
+        m += "\n";
+      }
+      if (r.vector.orphans.length) {
+        m += "## Absätze ohne Frage\n";
+        r.vector.orphans.forEach(function (o) { m += "- " + pad(o.i + 1) + ": " + (o.k || "") + "\n"; });
+        m += "\n";
+      }
+    }
+    if (r.fragen && r.fragen.length) {
+      m += "## Fragenabdeckung\n";
+      r.fragen.forEach(function (q) { m += "- [" + q.status + "] " + q.frage + " — " + (q.hinweis || "") + "\n"; });
+      m += "\n";
+    }
+    if (r.stellen && r.stellen.length) {
+      m += "## Stellen und Vorschläge\n\n";
+      m += "| Frage | Stelle im Text | Vorschlag |\n|---|---|---|\n";
+      r.stellen.forEach(function (s) {
+        var q = s.stelle ? "„" + s.stelle.replace(/\|/g, "/") + "“" : "— keine —";
+        m += "| " + s.frage.replace(/\|/g, "/") + " | " + q + " | " + String(s.vorschlag || "").replace(/\|/g, "/") + " |\n";
+      });
+      m += "\n";
+    }
+    if (r.cmp) {
+      m += "## Wettbewerbsvergleich (gleiche Anfragen)\n\n";
+      m += "| Anfrage | " + r.cmp.korpora.map(function (k) { return k.eigen ? "Du" : k.name; }).join(" | ") + " | Befund |\n";
+      m += "|---" + r.cmp.korpora.map(function () { return "|---"; }).join("") + "|---|\n";
+      r.cmp.rows.slice().sort(function (a, b) { return b.abstand - a.abstand; }).forEach(function (x) {
+        m += "| " + x.frage.replace(/\|/g, "/") + " | " +
+          x.werte.map(function (w) { return Math.round(w.best * 100); }).join(" | ") + " | " +
+          (x.urteil === "verloren" ? x.sieger.name + " vorn" : x.urteil === "gewonnen" ? "du vorn" : "gleichauf") + " |\n";
+      });
+      m += "\n";
+      var det = r.cmp.rows.filter(function (x) { return x.deckt; });
+      if (det.length) {
+        m += "### Was dort steht und bei dir fehlt\n";
+        det.forEach(function (x) { m += "- (" + x.relevanz + ") " + x.frage + " — " + x.sieger.name + ": " + x.deckt + " → " + x.massnahme + "\n"; });
+        m += "\n";
+      }
+    }
+    var btn = $("#copy");
+    var done = function () { btn.textContent = "Kopiert"; setTimeout(function () { btn.textContent = "Ergebnis als Text kopieren"; }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(m).then(done, function () { fallback(m, done); });
+    else fallback(m, done);
+  }
+  function fallback(text, done) {
+    var t = document.createElement("textarea");
+    t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+    document.body.appendChild(t); t.select();
+    try { document.execCommand("copy"); done(); } catch (e) { }
+    document.body.removeChild(t);
+  }
+
+  /* ---------- Eingaben ---------- */
+  var rc = 0;
+  function addRival() {
+    if ($$("#rivals .rival").length >= 4) return;
+    rc++;
+    var d = document.createElement("div");
+    d.className = "rival";
+    d.innerHTML = '<div class="rival-top"><input class="in name" type="text" value="Wettbewerber ' + rc +
+      '"><button class="linky drop" type="button">Weg</button></div>' +
+      '<textarea class="in small text" placeholder="Text der konkurrierenden Seite"></textarea>';
+    d.querySelector(".drop").addEventListener("click", function () { d.remove(); });
+    $("#rivals").appendChild(d);
+  }
+  $("#add").addEventListener("click", addRival);
+  addRival();
+
+  function updateMeta() {
+    var v = $("#own").value, t = T();
+    var parts = chunkText(v, +$("#size").value, +$("#ovl").value);
+    var maxChunk = parts.length ? Math.max.apply(null, parts.map(function (p) { return p.text.length; })) : 0;
+    $("#meta").textContent = v.length.toLocaleString("de-DE") + " Zeichen · etwa " + parts.length +
+      " Abschnitte · größter ≈ " + toks(maxChunk).toLocaleString("de-DE") + " von " + t.maxTok.toLocaleString("de-DE") + " erlaubten Token";
+    $("#tinfo").textContent = t.model + " · " + t.hinweis;
+  }
+  $("#own").addEventListener("input", updateMeta);
+  $("#size").addEventListener("change", updateMeta);
+  $("#ovl").addEventListener("change", updateMeta);
+  $("#target").addEventListener("change", updateMeta);
+  updateMeta();
+  $("#mode").textContent = PROXY_URL ? "Modus: eigener Proxy" : "Modus: ohne Einrichtung";
+
+  /* ---------- Ablauf ---------- */
+  $("#run").addEventListener("click", async function () {
+    var own = $("#own").value.trim(), topic = $("#topic").value.trim(), target = +$("#size").value;
+    if (own.length < 200) { say("Der Text ist zu kurz. Bitte mindestens 200 Zeichen einfügen.", true); return; }
+
+    var rivals = $$("#rivals .rival").map(function (b) {
+      return { name: b.querySelector(".name").value.trim() || "Wettbewerber", text: b.querySelector(".text").value.trim() };
+    }).filter(function (x) { return x.text.length > 200; });
+
+    var btn = this; btn.disabled = true; btn.textContent = "Wird geprüft …";
+    try {
+      var parts = chunkText(own, target, ovl), capped = false;
+      if (parts.length > 30) { parts = parts.slice(0, 30); capped = true; }
+      say("Text zerlegt in " + parts.length + " Abschnitte" + (capped ? " (auf 30 begrenzt)" : "") + ". Prüfung läuft …");
+
+      var W = weights();
+      var chunks = await pool(parts, 4, async function (part) {
+        var j = await askJSON(P.chunk(topic, part.text));
+        var e = +j.eigenstaendig || 0, d = +j.dichte || 0, p = +j.praezision || 0;
+        return Object.assign(j, { text: part.text, kern: part.kern, ovl: part.ovl, len: part.text.length,
+          eigenstaendig: e, dichte: d, praezision: p, score: e * W.e + d * W.d + p * W.p });
+      }, function (n, t) { say("Abschnitt " + n + " von " + t + " geprüft …"); });
+      chunks.forEach(function (c, i) { if (c.error) { c.len = parts[i].text.length; c.text = parts[i].text; c.kern = parts[i].kern; c.ovl = parts[i].ovl; } });
+      if (chunks.every(function (c) { return c.error; })) throw new Error(chunks[0].error);
+
+      say("Prüfe, welche Fragen offen bleiben …");
+      var fragen = [];
+      try { fragen = (await askJSON(P.questions(topic, own, $("#ws").checked), $("#ws").checked)).fragen || []; } catch (e) { }
+
+      say("Vergleiche Fragen mit den Abschnitten …");
+      var vector = null, QUERIES = [];
+      try {
+        var eigene = $("#tests").value.split("\n").map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 5; });
+        // Reihenfolge nach Beweiskraft: echte Anfragen vor erzeugten Fragen.
+        var liste = [];
+        GSC.chance.forEach(function (r) { liste.push({ frage: r.q, quelle: "chance", pos: r.pos, impr: r.impr }); });
+        GSC.kontrolle.forEach(function (r) { liste.push({ frage: r.q, quelle: "kontrolle", pos: r.pos, impr: r.impr }); });
+        eigene.forEach(function (f) { liste.push({ frage: f, quelle: "eigen" }); });
+        fragen.forEach(function (q) { liste.push({ frage: q.frage, quelle: "llm" }); });
+        liste = liste.filter(function (x, i, a) {
+          return a.findIndex(function (y) { return fold(y.frage) === fold(x.frage); }) === i;
+        }).slice(0, 16);
+
+        if (liste.length) {
+          var terme = [];
+          try { terme = (await askJSON(P.expand(topic, liste.map(function (x) { return x.frage; })))).queries || []; } catch (e) { }
+          var queries = liste.map(function (x, i) {
+            var m = terme.filter(function (t) { return +t.i === i + 1; })[0] || terme[i] || {};
+            return Object.assign({}, x, { terme: m.terme || [] });
+          });
+          QUERIES = queries;
+          var dense = null;
+          if (embAnbieter() !== "keine" && embKey()) {
+            try {
+              say("Erzeuge Vektoren über " + (embAnbieter() === "gemini" ? "Gemini" : "OpenAI") + " …");
+              var lebende = chunks.filter(function (cc) { return !cc.error; });
+              var dTexte = lebende.map(function (cc) { return cc.text; });
+              var dv = await embedBatch(dTexte, "doc");
+              var qv = await embedBatch(queries.map(function (q) { return q.frage; }), "query");
+              var sv = embAnbieter() === "gemini" ? await embedBatch(dTexte, "sim") : dv;
+              if (dv && qv) dense = { d: dv, q: qv, s: sv };
+            } catch (embErr) {
+              say("Embeddings nicht verfügbar (" + embErr.message + ") — es wird auf den Wortabgleich zurückgefallen.");
+              await new Promise(function (r2) { setTimeout(r2, 1500); });
+            }
+          }
+          vector = vectorLayer(chunks, queries, dense);
+        }
+      } catch (e) { }
+
+      /* Konkrete Stellen + Vorschläge */
+      var stellen = [];
+      try {
+        var basis = [];
+        if (vector) {
+          basis = vector.rows.slice(0, 12).map(function (row) {
+            var c = chunks[row.bestChunk];
+            return { frage: row.frage, chunk: row.bestChunk, text: (c && c.text) || own.slice(0, 2500), blind: row.blind };
+          });
+        } else if (fragen.length) {
+          basis = fragen.slice(0, 10).map(function (q) { return { frage: q.frage, chunk: null, text: own.slice(0, 2500), blind: q.status === "fehlt" }; });
+        }
+        if (basis.length) {
+          say("Suche die Stellen, die zitiert würden …");
+          var tabuL = tabuListe(), tabuS = tabuStems();
+          stellen = await pool(basis, 4, async function (b) {
+            var j = await askJSON(P.stelle(topic, b.frage, b.text, tabuL));
+            var zitat = String(j.stelle || "").trim();
+            // Wörtlichkeit prüfen: sonst als sinngemäß kennzeichnen.
+            var norm = function (s) { return s.toLowerCase().replace(/[\s„“"»«]+/g, " ").replace(/[^\wäöüß ]/g, "").trim(); };
+            var woertlich = zitat.length > 0 && norm(b.text).indexOf(norm(zitat)) !== -1;
+            // Vorschlag gegen die Markensprache prüfen, statt darauf zu vertrauen.
+            var verstoss = [];
+            tok(j.vorschlag || "").forEach(function (t) {
+              var hit = tabuTreffer(t, tabuS);
+              if (hit && verstoss.indexOf(hit) === -1) verstoss.push(hit);
+            });
+            return {
+              frage: b.frage, chunk: b.chunk, blind: b.blind,
+              stelle: zitat, woertlich: woertlich,
+              guete: j.guete || (zitat ? "indirekt" : "keine"),
+              problem: j.problem || "", vorschlag: j.vorschlag || "", verstoss: verstoss
+            };
+          }, function (n, t) { say("Stelle " + n + " von " + t + " geprüft …"); });
+          stellen = stellen.filter(function (x) { return x && !x.error; });
+        }
+      } catch (e) { }
+
+      var cmp = null, rlist = [];
+      if (rivals.length && QUERIES.length) {
+        say("Prüfe dieselben Anfragen gegen " + rivals.length + " Wettbewerbertext(e) …");
+        cmp = await vergleich(chunks, rivals, QUERIES, target, ovl);
+        if (cmp) {
+          rlist = cmp.korpora.filter(function (k) { return !k.eigen; })
+            .map(function (k) { return { name: k.name, chunks: k.parts.length }; });
+          // Nur die schwersten Lücken kosten einen Aufruf.
+          var verloren = cmp.rows.filter(function (r) { return r.urteil === "verloren"; })
+            .sort(function (a, b) { return b.abstand - a.abstand; }).slice(0, 5);
+          if (verloren.length) {
+            say("Werte aus, was die Wettbewerber dort abdecken …");
+            var details = await pool(verloren, 3, async function (r) {
+              var k = cmp.korpora.filter(function (x) { return x.name === r.sieger.name; })[0];
+              var fremdTxt = k && k.parts[r.sieger.idx] ? k.parts[r.sieger.idx] : "";
+              var eigenK = cmp.korpora[0];
+              var eigenTxt = r.mine.idx >= 0 && eigenK.parts[r.mine.idx] ? eigenK.parts[r.mine.idx] : "";
+              if (!fremdTxt) return null;
+              return { frage: r.frage, j: await askJSON(P.fremd(r.frage, r.sieger.name, fremdTxt, eigenTxt)) };
+            });
+            details.forEach(function (d) {
+              if (!d || d.error || !d.j) return;
+              var row = cmp.rows.filter(function (r) { return r.frage === d.frage; })[0];
+              if (row) { row.deckt = d.j.deckt || ""; row.relevanz = d.j.relevanz || "mittel"; row.massnahme = d.j.massnahme || ""; }
+            });
+          }
+        }
+      }
+
+      var schluessel = verlaufSchluessel(topic, own);
+      var vorher = letzterLauf(schluessel, null);
+      RESULT = { schluessel: schluessel, vorher: vorher, topic: topic, target: target, ovl: ovl, ziel: T(), w: W, tabu: tabuStems(), chunks: chunks, fragen: fragen, vector: vector, stellen: stellen, rivals: rlist, cmp: cmp };
+      if (SPEICHER_OK) {
+        var ok2 = RESULT.chunks.filter(function (c) { return !c.error; });
+        var mw = function (f) { return ok2.length ? ok2.reduce(function (a, c) { return a + f(c); }, 0) / ok2.length : 0; };
+        var eig2 = mw(function (c) { return c.eigenstaendig; }), dic2 = mw(function (c) { return c.dichte; }), pra2 = mw(function (c) { return c.praezision; });
+        verlaufSpeichern({
+          id: Date.now(), datum: new Date().toISOString(), schluessel: schluessel,
+          topic: topic || "ohne Thema", zeichen: own.length, abschnitte: RESULT.chunks.length,
+          gesamt: eig2 * W.e + dic2 * W.d + pra2 * W.p, eig: eig2, dic: dic2, pra: pra2,
+          blind: RESULT.vector ? RESULT.vector.rows.filter(function (x) { return x.blind; }).length : null,
+          fragen: RESULT.vector ? RESULT.vector.rows.length : 0,
+          messart: RESULT.vector && RESULT.vector.echt ? "embeddings" : "wortabgleich",
+          schwelle: RESULT.vector ? RESULT.vector.floorQuelle : null
+        });
+      }
+      render(RESULT);
+    } catch (err) {
+      var m = err.message || "Unbekannter Fehler.";
+      // "Erneut versuchen" hilft bei einem falschen Schlüssel nicht weiter.
+      var wiederholbar = !/Schlüssel|abgelehnt|Verbindung/.test(m);
+      say(m + (wiederholbar ? " Bitte erneut versuchen." : ""), true);
+    } finally {
+      btn.disabled = false; btn.textContent = "Text prüfen";
+    }
+  });
+})();
+</script>
+</body>
+</html>

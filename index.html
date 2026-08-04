@@ -208,11 +208,11 @@
 <div class="wrap grid">
   <aside class="rail">
     <div class="field" id="keybox" hidden>
-      <label for="key">API-Schlüssel</label>
+      <label for="key">Anthropic-Schlüssel <span class="opt">— für die Analyse</span></label>
       <input id="key" class="in" type="password" placeholder="sk-ant-…" autocomplete="off">
-      <p class="hint" id="keyhint">Nur nötig, wenn du das Tool selbst hostest. Der Schlüssel bleibt in diesem Tab und geht direkt an Anthropic.</p>
+      <p class="hint" id="keyhint">Nötig auf einer eigenen Adresse. Damit laufen Bewertung, Fragen und Vorschläge. Zu holen unter console.anthropic.com. Der Schlüssel bleibt in diesem Tab.</p>
     </div>
-    <p class="hint" id="keytoggle" style="margin:-8px 0 20px"><button class="linky" type="button" id="showkey">Selbst gehostet? Eigenen API-Schlüssel eintragen</button></p>
+    <p class="hint" id="keytoggle" style="margin:-8px 0 20px"><button class="linky" type="button" id="showkey">Selbst gehostet? Anthropic-Schlüssel eintragen</button></p>
 
     <div class="field">
       <label for="topic">Thema oder Hauptkeyword</label>
@@ -238,7 +238,7 @@
         <option value="gemini">Google Gemini — gemini-embedding-001</option>
         <option value="openai">OpenAI — text-embedding-3-small</option>
       </select>
-      <input id="embkey" class="in" type="password" placeholder="Schlüssel des Anbieters" autocomplete="off" style="margin-top:8px" hidden>
+      <input id="embkey" class="in" type="password" placeholder="Schlüssel von Google bzw. OpenAI — nicht der Anthropic-Schlüssel" autocomplete="off" style="margin-top:8px" hidden>
       <p class="hint" id="embinfo">Ohne Embeddings vergleicht Vectorizer nur Wörter und Wortstämme. Synonyme erkennt es dann nicht.</p>
     </div>
 
@@ -386,6 +386,15 @@
     $("#mode").textContent = "Modus: eigener API-Schlüssel";
   }
   $("#showkey").addEventListener("click", function () { revealKey(); $("#key").focus(); });
+  // Im Claude-Artifact läuft die Seite in einem Rahmen und braucht keinen
+  // Schlüssel. Als eigenständige Seite braucht sie ihn immer — dann soll das
+  // Feld gleich da sein und nicht erst nach einem Fehlversuch auftauchen.
+  (function () {
+    var eigenstaendig = (function () { try { return window.self === window.top; } catch (e) { return true; } })();
+    if (eigenstaendig && /^https?:$/.test(location.protocol) && location.hostname) {
+      revealKey("Auf dieser Adresse ist ein eigener Anthropic-Schlüssel nötig. Er bleibt in diesem Tab und geht direkt an Anthropic.");
+    }
+  })();
 
   async function ask(prompt, useSearch) {
     var body = { model: MODEL, max_tokens: MAX_TOKENS, messages: [{ role: "user", content: prompt }] };

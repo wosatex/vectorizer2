@@ -86,6 +86,25 @@ Das ist ein anderer Mechanismus und wird oft damit verwechselt. Diese Assistente
 
 ---
 
+## Welche Schlüssel brauche ich?
+
+Auf einer eigenen Adresse werden bis zu **zwei verschiedene Schlüssel** von **zwei verschiedenen Anbietern** gebraucht. Sie sind nicht austauschbar.
+
+| Feld | Anbieter | Wofür | Pflicht? |
+|---|---|---|---|
+| **Anthropic-Schlüssel** | console.anthropic.com, beginnt mit `sk-ant-` | Die eigentliche Analyse: Abschnitte bewerten, Fragen ableiten, Zitatstellen finden, Vorschläge formulieren | **ja** |
+| **Embeddings** | aistudio.google.com (`AIza…`) oder platform.openai.com (`sk-…`) | Nur die Ähnlichkeitsmessung. Ohne diesen Schlüssel vergleicht das Tool Wörter statt Bedeutung | nein |
+
+Der Anthropic-Schlüssel trägt die Arbeit — ohne ihn läuft gar nichts. Der Embedding-Schlüssel macht die Messung besser; lässt du ihn weg, läuft alles durch, nur eben mit Wortabgleich.
+
+Das Feld für den Anthropic-Schlüssel erscheint automatisch, sobald die App auf einer eigenen Adresse läuft. Im Claude-Artifact bleibt es ausgeblendet, weil dort kein Schlüssel nötig ist.
+
+**Beide Schlüssel bleiben nur im geöffneten Tab.** Sie werden nicht gespeichert, nicht in den Verlauf geschrieben und nicht an Dritte weitergegeben — jeder geht direkt an seinen Anbieter. Nach dem Neuladen sind sie weg und müssen erneut eingegeben werden. Das ist bewusst so: Was in `localStorage` liegt, liest jedes eingeschleuste Skript mit.
+
+Grobe Kosten pro Durchlauf einer normalen Seite: wenige Cent bei Anthropic, Bruchteile eines Cents für die Embeddings. Setz in beiden Konten ein Monatslimit.
+
+---
+
 ## Als PWA veröffentlichen
 
 Das Repository enthält alles Nötige:

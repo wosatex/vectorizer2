@@ -342,8 +342,33 @@
      betreibst — dann laufen ALLE Aufrufe über DEIN Budget. Siehe README.
      ======================================================================= */
   var PROXY_URL = "";
-  var MODEL = "claude-sonnet-4-6";
+  // Zwei Modelle statt einem: Die Abschnittsbewertung ist eine mechanische,
+  // eng vorgegebene Aufgabe — dafür reicht das kleine Modell zu einem Drittel
+  // des Preises. Formuliert wird weiter mit dem großen.
+  var MODELLE = {
+    schnell: { id: "claude-haiku-4-5-20251001", ein: 1, aus: 5 },
+    stark: { id: "claude-sonnet-4-6", ein: 3, aus: 15 }
+  };
+  var SCHNELL_OK = true;          // fällt auf das große Modell zurück, falls nicht verfügbar
   var MAX_TOKENS = 1000;
+
+  // Verbrauch mitschreiben, damit die Kosten nicht erst in der Abrechnung auftauchen.
+  var KOSTEN = { aufrufe: 0, ein: 0, aus: 0, geschaetzt: false, proModell: {} };
+  function kostenReset() { KOSTEN = { aufrufe: 0, ein: 0, aus: 0, geschaetzt: false, proModell: {} }; }
+  function kostenBuchen(mod, ein, aus, echt) {
+    KOSTEN.aufrufe++; KOSTEN.ein += ein; KOSTEN.aus += aus;
+    if (!echt) KOSTEN.geschaetzt = true;
+    var k = KOSTEN.proModell[mod.id] || (KOSTEN.proModell[mod.id] = { n: 0, ein: 0, aus: 0, preis: mod });
+    k.n++; k.ein += ein; k.aus += aus;
+  }
+  function kostenSumme() {
+    var d = 0;
+    Object.keys(KOSTEN.proModell).forEach(function (id) {
+      var k = KOSTEN.proModell[id];
+      d += k.ein / 1e6 * k.preis.ein + k.aus / 1e6 * k.preis.aus;
+    });
+    return d;
+  }
 
   /* Zielsysteme. Chunking macht kein Sprachmodell — es macht deine Pipeline.
      Was sich unterscheidet, ist das Embedding-Modell dahinter.
@@ -410,8 +435,9 @@
     }
   })();
 
-  async function ask(prompt, useSearch) {
-    var body = { model: MODEL, max_tokens: MAX_TOKENS, messages: [{ role: "user", content: prompt }] };
+  async function ask(prompt, useSearch, wunsch) {
+    var mod = (wunsch === "schnell" && SCHNELL_OK) ? MODELLE.schnell : MODELLE.stark;
+    var body = { model: mod.id, max_tokens: MAX_TOKENS, messages: [{ role: "user", content: prompt }] };
     if (useSearch) body.tools = [{ type: "web_search_20250305", name: "web_search" }];
 
     var url = PROXY_URL || "https://api.anthropic.com/v1/messages";
@@ -436,10 +462,23 @@
       throw new Error("Der API-Schlüssel wurde abgelehnt.");
     }
     if (res.status === 429) throw new Error("Zu viele Anfragen. Kurz warten und erneut starten.");
-    if (!res.ok) throw new Error("Die API antwortete mit Status " + res.status + ".");
+    if (!res.ok) {
+      // Kleines Modell nicht verfügbar: einmal umschalten statt abbrechen.
+      if (mod === MODELLE.schnell && (res.status === 400 || res.status === 404)) {
+        SCHNELL_OK = false;
+        return ask(prompt, useSearch, "stark");
+      }
+      throw new Error("Die API antwortete mit Status " + res.status + ".");
+    }
     var data = await res.json();
-    return (data.content || []).filter(function (b) { return b.type === "text"; })
+    var txt = (data.content || []).filter(function (b) { return b.type === "text"; })
       .map(function (b) { return b.text; }).join("\n");
+    if (data.usage && data.usage.input_tokens != null) {
+      kostenBuchen(mod, data.usage.input_tokens, data.usage.output_tokens || 0, true);
+    } else {
+      kostenBuchen(mod, Math.round(prompt.length / 3.2), Math.round(txt.length / 3.2), false);
+    }
+    return txt;
   }
 
   function toJSON(raw) {
@@ -448,11 +487,13 @@
     if (a === -1 || b === -1) throw new Error("Keine auswertbare Antwort erhalten.");
     return JSON.parse(t.slice(a, b + 1));
   }
-  async function askJSON(prompt, useSearch) {
-    try { return toJSON(await ask(prompt, useSearch)); }
+  async function askJSON(prompt, useSearch, wunsch) {
+    try { return toJSON(await ask(prompt, useSearch, wunsch)); }
     catch (e) {
       if (/Schlüssel|Status|Anfragen/.test(e.message)) throw e;
-      return toJSON(await ask(prompt + "\n\nWICHTIG: Antworte ausschliesslich mit gueltigem, vollstaendigem JSON. Kein Fliesstext, keine Code-Fences.", false));
+      // Wiederholung immer mit dem großen Modell: ein zweiter Fehlversuch
+      // kostet mehr als der Aufpreis.
+      return toJSON(await ask(prompt + "\n\nWICHTIG: Antworte ausschliesslich mit gueltigem, vollstaendigem JSON. Kein Fliesstext, keine Code-Fences.", false, "stark"));
     }
   }
   async function pool(items, limit, fn, tick) {
@@ -1054,7 +1095,7 @@
 
   /* ---------- Prompts ---------- */
   var P = {
-    chunk: function (topic, txt) {
+    chunk: function (topic, txt, ohneTerme) {
       return 'Du pruefst, wie gut ein einzelner Textabschnitt als eigenstaendiger Chunk in einer Vektordatenbank funktioniert. Der Chunk wird spaeter isoliert abgerufen - der umgebende Text steht dann NICHT zur Verfuegung.\n\n' +
         'Thema der Seite: ' + (topic || "unbekannt") + '\n\n' +
         'Bewerte 0-10:\n' +
@@ -1063,7 +1104,9 @@
         '- praezision: Sind Entitaeten, Fachbegriffe, Produkt-, Orts- und Gesetzesnamen ausgeschrieben statt umschrieben?\n\n' +
         'ABSCHNITT:\n"""\n' + txt + '\n"""\n\n' +
         'Antworte NUR mit JSON (Deutsch, knapp):\n' +
-        '{"eigenstaendig":0,"dichte":0,"praezision":0,"kernaussage":"max 12 Woerter, was dieser Abschnitt beantwortet","entitaeten":["max 6 im Text genannte Eigennamen/Fachbegriffe/Zahlenfakten"],"terme":["max 8 Suchbegriffe und Synonyme, unter denen jemand diesen Inhalt suchen wuerde, auch wenn sie im Text nicht woertlich stehen"],"fragen":["max 2 Fragen, die genau dieser Abschnitt beantwortet"],"probleme":[{"typ":"Unklarer Verweis|Floskel|Bruchstueck|Vager Begriff|Braucht Kontext","stelle":"kurzes Zitat, max 8 Woerter","fix":"konkrete Umformulierung in einem Satz"}]}\n' +
+        '{"eigenstaendig":0,"dichte":0,"praezision":0,"kernaussage":"max 12 Woerter, was dieser Abschnitt beantwortet","entitaeten":["max 6 im Text genannte Eigennamen/Fachbegriffe/Zahlenfakten"],' +
+        (ohneTerme ? '' : '"terme":["max 8 Suchbegriffe und Synonyme, unter denen jemand diesen Inhalt suchen wuerde, auch wenn sie im Text nicht woertlich stehen"],"fragen":["max 2 Fragen, die genau dieser Abschnitt beantwortet"],') +
+        '"probleme":[{"typ":"Unklarer Verweis|Floskel|Bruchstueck|Vager Begriff|Braucht Kontext","stelle":"kurzes Zitat, max 8 Woerter","fix":"konkrete Umformulierung in einem Satz"}]}\n' +
         'Maximal 3 Probleme, die gravierendsten zuerst. Keine Probleme = leeres Array.';
     },
     expand: function (topic, list) {
@@ -1072,21 +1115,22 @@
         list.map(function (q, i) { return (i + 1) + ". " + q; }).join("\n") + '\n\n' +
         'Antworte NUR mit JSON:\n{"queries":[{"i":1,"terme":["max 10 Begriffe"]}]}';
     },
-    stelle: function (topic, frage, abschnitt, tabu) {
-      return 'Thema: "' + (topic || "unbekannt") + '"\n' +
-        'Frage einer Nutzerin: "' + frage + '"\n\n' +
+    stellen: function (topic, fragen, abschnitt, tabu) {
+      return 'Thema: "' + (topic || "unbekannt") + '"\n\n' +
         (tabu && tabu.length
-          ? 'MARKENSPRACHE - diese Begriffe sind verboten und duerfen im Vorschlag NICHT vorkommen, auch nicht in Zusammensetzungen oder Beugungen: ' + tabu.join(", ") +
-          '. Falls die Frage einen dieser Begriffe enthaelt, beantworte sie mit der eigenen Bezeichnung des Anbieters statt mit dem verbotenen Wort.\n\n'
+          ? 'MARKENSPRACHE - diese Begriffe sind verboten und duerfen in keinem Vorschlag vorkommen, auch nicht in Zusammensetzungen oder Beugungen: ' + tabu.join(", ") +
+          '. Enthaelt eine Frage einen dieser Begriffe, antworte mit der eigenen Bezeichnung des Anbieters.\n\n'
           : '') +
-        'Bestpassender Abschnitt aus dem Text:\n"""\n' + abschnitt.slice(0, 2500) + '\n"""\n\n' +
-        'Aufgabe:\n' +
-        '1. stelle: Zitiere WOERTLICH den Satz oder die zwei Saetze aus dem Abschnitt, die ein KI-Assistent als Antwort auf die Frage ausgeben wuerde. Exakt uebernehmen, nichts umformulieren, nichts ergaenzen, keine Auslassungszeichen. Wenn der Abschnitt die Frage gar nicht beantwortet: leerer String.\n' +
-        '2. guete: "direkt" wenn die Stelle die Frage klar beantwortet, "indirekt" wenn sie nur streift, "keine" wenn nichts passt.\n' +
-        '3. problem: max 12 Woerter, warum die Stelle als zitierte Antwort schwach ist. Leerer String, wenn sie stark ist.\n' +
-        '4. vorschlag: EIN fertig formulierter deutscher Satz (maximal zwei), der die Frage direkt beantwortet und ohne Umgebung verstaendlich ist. Nenne das Subjekt beim Namen statt "wir" oder "das Unternehmen". Erfinde keine Zahlen, Fristen oder Fakten - setze dafuer [eckige Platzhalter].\n\n' +
-        'Antworte NUR mit JSON:\n{"stelle":"","guete":"direkt|indirekt|keine","problem":"","vorschlag":""}';
+        'ABSCHNITT aus dem Text des Nutzers:\n"""\n' + abschnitt.slice(0, 2500) + '\n"""\n\n' +
+        'FRAGEN:\n' + fragen.map(function (f, i) { return (i + 1) + ". " + f; }).join("\n") + '\n\n' +
+        'Beantworte fuer JEDE Frage:\n' +
+        '1. stelle: Zitiere WOERTLICH den Satz oder die zwei Saetze aus dem Abschnitt, die ein KI-Assistent als Antwort ausgeben wuerde. Exakt uebernehmen, nichts umformulieren, keine Auslassungszeichen. Beantwortet der Abschnitt die Frage nicht: leerer String.\n' +
+        '2. guete: "direkt" | "indirekt" | "keine".\n' +
+        '3. problem: max 12 Woerter, warum die Stelle als Antwort schwach ist. Leer, wenn stark.\n' +
+        '4. vorschlag: EIN fertiger deutscher Satz (hoechstens zwei), der die Frage direkt beantwortet und ohne Umgebung verstaendlich ist. Subjekt beim Namen nennen statt "wir". Keine Zahlen erfinden - [eckige Platzhalter] nutzen.\n\n' +
+        'Antworte NUR mit JSON:\n{"antworten":[{"i":1,"stelle":"","guete":"direkt|indirekt|keine","problem":"","vorschlag":""}]}';
     },
+
     fremd: function (frage, name, abschnitt, eigenTxt) {
       return 'Eine Nutzerin sucht: "' + frage + '"\n\n' +
         'Der Wettbewerber "' + name + '" hat dazu diesen Abschnitt:\n"""\n' + abschnitt.slice(0, 1800) + '\n"""\n\n' +
@@ -1098,13 +1142,13 @@
         'Antworte NUR mit JSON:\n{"deckt":"","relevanz":"hoch|mittel|niedrig","massnahme":""}';
     },
 
-    questions: function (topic, txt, search) {
+    questions: function (topic, uebersicht, search) {
       return 'Thema: "' + (topic || "unbekannt") + '"\n\n' +
         (search
           ? 'Recherchiere kurz im Web, welche Fragen Nutzerinnen und Nutzer zu diesem Thema tatsaechlich stellen. Maximal eine Suche.'
           : 'Leite aus deinem Wissen ab, welche Fragen Nutzerinnen und Nutzer zu diesem Thema stellen - auch als Prompt an einen KI-Assistenten.') + '\n' +
-        'Pruefe dann, ob der folgende Text diese Fragen beantwortet.\n\n' +
-        'TEXT:\n"""\n' + txt.slice(0, 7000) + '\n"""\n\n' +
+        'Pruefe dann anhand der folgenden Inhaltsuebersicht, ob die Seite diese Fragen beantwortet. Jede Zeile ist ein Abschnitt mit seiner Kernaussage und den darin genannten Fakten.\n\n' +
+        'UEBERSICHT:\n' + uebersicht.slice(0, 3500) + '\n\n' +
         'Antworte NUR mit JSON, 9 Fragen, sortiert nach Wichtigkeit:\n' +
         '{"fragen":[{"frage":"...","status":"beantwortet|teilweise|fehlt","hinweis":"max 15 Woerter: was fehlt bzw. wo es steht"}]}';
     }
@@ -1472,7 +1516,8 @@
         h += '<div class="row" style="cursor:default"><span class="n">' + (i === 0 ? "neu" : pad(i + 1)) + '</span>' +
           '<span class="t"><i style="width:' + Math.round((x.gesamt / maxG) * 100) + '%;background:' + alpha(0.3 + x.gesamt / 14) + '"></i></span>' +
           '<span class="k">' + esc(datumKurz(x.datum)) + ' <span>· ' + x.abschnitte + ' Abschnitte · ' +
-          (x.blind != null ? x.blind + ' offen · ' : '') + esc(x.messart) + '</span></span>' +
+          (x.blind != null ? x.blind + ' offen · ' : '') + esc(x.messart) +
+          (x.kosten ? ' · $' + x.kosten.toFixed(3).replace(".", ",") : '') + '</span></span>' +
           '<span class="s">' + fx(x.gesamt) + '</span></div>';
       });
       h += '<div class="foot" style="margin-top:18px"><button class="ghost" id="vexport" type="button">Verlauf sichern</button>' +
@@ -1480,6 +1525,23 @@
         '<span class="note">Safari auf iOS löscht Browserspeicher nach etwa sieben Tagen ohne Nutzung. Für Langzeitvergleiche regelmäßig sichern.</span></div></section>';
     } else if (!SPEICHER_OK) {
       h += '<p class="read">Kein Verlauf möglich: Diese Umgebung erlaubt keinen dauerhaften Browserspeicher. Auf einer eigenen Adresse als installierte App funktioniert das.</p>';
+    }
+    if (r.kosten && r.kosten.aufrufe) {
+      var k = r.kosten;
+      var euro = k.summe * 0.92;
+      h += '<section><h2>Was dieser Durchlauf gekostet hat</h2>' +
+        '<p class="read">' + k.aufrufe + ' Aufrufe · ' + k.ein.toLocaleString("de-DE") + ' Eingabe- und ' +
+        k.aus.toLocaleString("de-DE") + ' Ausgabe-Tokens · <b>rund ' + k.summe.toFixed(3).replace(".", ",") +
+        ' US-Dollar</b> (etwa ' + euro.toFixed(3).replace(".", ",") + ' Euro)' +
+        (k.geschaetzt ? ' — teils geschätzt, weil die API für einzelne Aufrufe keine Verbrauchsangabe geliefert hat' : ' — nach den Verbrauchsangaben der API') +
+        '. Embeddings sind hier nicht enthalten; sie kosten Bruchteile eines Cents.</p>';
+      Object.keys(k.proModell).forEach(function (id) {
+        var m = k.proModell[id];
+        h += '<div class="note" style="border-left-style:dotted"><b>' + esc(id) + '</b><p>' + m.n + ' Aufrufe · ' +
+          m.ein.toLocaleString("de-DE") + ' ein / ' + m.aus.toLocaleString("de-DE") + ' aus · $' +
+          m.preis.ein + ' bzw. $' + m.preis.aus + ' je Million</p></div>';
+      });
+      h += '</section>';
     }
     h += '<button class="ghost" id="copy" type="button">Ergebnis als Text kopieren</button>';
 
@@ -1657,9 +1719,12 @@
       if (parts.length > 30) { parts = parts.slice(0, 30); capped = true; }
       say("Text zerlegt in " + parts.length + " Abschnitte" + (capped ? " (auf 30 begrenzt)" : "") + ". Prüfung läuft …");
 
+      kostenReset();
       var W = weights();
+      var mitEmb = embAnbieter() !== "keine" && !!embKey();
       var chunks = await pool(parts, 4, async function (part) {
-        var j = await askJSON(P.chunk(topic, part.text));
+        // Kleines Modell: die Bewertung folgt einem festen Schema.
+        var j = await askJSON(P.chunk(topic, part.text, mitEmb), false, "schnell");
         var e = +j.eigenstaendig || 0, d = +j.dichte || 0, p = +j.praezision || 0;
         return Object.assign(j, { text: part.text, kern: part.kern, ovl: part.ovl, len: part.text.length,
           eigenstaendig: e, dichte: d, praezision: p, score: e * W.e + d * W.d + p * W.p });
@@ -1669,7 +1734,17 @@
 
       say("Prüfe, welche Fragen offen bleiben …");
       var fragen = [];
-      try { fragen = (await askJSON(P.questions(topic, own, $("#ws").checked), $("#ws").checked)).fragen || []; } catch (e) { }
+      try {
+        // Die Kernaussagen liegen bereits vor — der Volltext muss nicht noch
+        // einmal durch die Leitung.
+        var uebersicht = chunks.map(function (c, i) {
+          if (c.error) return "";
+          return pad(i + 1) + ": " + (c.kernaussage || "") +
+            ((c.entitaeten || []).length ? " [" + c.entitaeten.join(", ") + "]" : "");
+        }).filter(Boolean).join("\n");
+        if (!uebersicht) uebersicht = own.slice(0, 3500);
+        fragen = (await askJSON(P.questions(topic, uebersicht, $("#ws").checked), $("#ws").checked)).fragen || [];
+      } catch (e) { }
 
       say("Vergleiche Fragen mit den Abschnitten …");
       var vector = null, QUERIES = [];
@@ -1687,7 +1762,10 @@
 
         if (liste.length) {
           var terme = [];
-          try { terme = (await askJSON(P.expand(topic, liste.map(function (x) { return x.frage; })))).queries || []; } catch (e) { }
+          // Mit echten Embeddings erledigt das Modell die Synonymbrücke selbst.
+          if (!mitEmb) {
+            try { terme = (await askJSON(P.expand(topic, liste.map(function (x) { return x.frage; })))).queries || []; } catch (e) { }
+          }
           var queries = liste.map(function (x, i) {
             var m = terme.filter(function (t) { return +t.i === i + 1; })[0] || terme[i] || {};
             return Object.assign({}, x, { terme: m.terme || [] });
@@ -1712,41 +1790,65 @@
         }
       } catch (e) { }
 
-      /* Konkrete Stellen + Vorschläge */
+      /* Konkrete Stellen + Vorschläge.
+         Nach Abschnitt gebündelt: mehrere Anfragen zeigen oft auf denselben
+         besten Abschnitt, dessen Text sonst jedes Mal neu mitfahren würde. */
       var stellen = [];
       try {
         var basis = [];
         if (vector) {
-          basis = vector.rows.slice(0, 12).map(function (row) {
-            var c = chunks[row.bestChunk];
-            return { frage: row.frage, chunk: row.bestChunk, text: (c && c.text) || own.slice(0, 2500), blind: row.blind };
-          });
+          // Nach Beweiskraft priorisieren: echte Suchanfragen mit Potenzial und
+          // unbeantwortete Fragen zuerst. Jede weitere Anfrage kostet einen
+          // Aufruf, und mit Embeddings lässt sie sich kaum noch bündeln.
+          var rang = function (x) {
+            return (x.quelle === "chance" ? 0 : x.quelle === "kontrolle" ? 2 : x.quelle === "eigen" ? 1 : 3) +
+              (x.blind ? -0.5 : 0);
+          };
+          basis = vector.rows.slice().sort(function (x, y) { return rang(x) - rang(y); }).slice(0, 10)
+            .map(function (row) {
+              var c = chunks[row.bestChunk];
+              return { frage: row.frage, chunk: row.bestChunk, text: (c && c.text) || own.slice(0, 2500), blind: row.blind };
+            });
         } else if (fragen.length) {
           basis = fragen.slice(0, 10).map(function (q) { return { frage: q.frage, chunk: null, text: own.slice(0, 2500), blind: q.status === "fehlt" }; });
         }
         if (basis.length) {
-          say("Suche die Stellen, die zitiert würden …");
+          var gruppen = {};
+          basis.forEach(function (b2) {
+            var k = String(b2.chunk);
+            (gruppen[k] = gruppen[k] || { chunk: b2.chunk, text: b2.text, fragen: [] }).fragen.push(b2);
+          });
+          // Nie mehr als drei Fragen je Aufruf: sonst reicht die Ausgabegrenze nicht.
+          var pakete = [];
+          Object.keys(gruppen).forEach(function (k) {
+            var g = gruppen[k];
+            for (var i = 0; i < g.fragen.length; i += 3) {
+              pakete.push({ chunk: g.chunk, text: g.text, fragen: g.fragen.slice(i, i + 3) });
+            }
+          });
+          say("Suche die Stellen, die zitiert würden — " + pakete.length + " Aufrufe für " + basis.length + " Anfragen …");
           var tabuL = tabuListe(), tabuS = tabuStems();
-          stellen = await pool(basis, 4, async function (b) {
-            var j = await askJSON(P.stelle(topic, b.frage, b.text, tabuL));
-            var zitat = String(j.stelle || "").trim();
-            // Wörtlichkeit prüfen: sonst als sinngemäß kennzeichnen.
-            var norm = function (s) { return s.toLowerCase().replace(/[\s„“"»«]+/g, " ").replace(/[^\wäöüß ]/g, "").trim(); };
-            var woertlich = zitat.length > 0 && norm(b.text).indexOf(norm(zitat)) !== -1;
-            // Vorschlag gegen die Markensprache prüfen, statt darauf zu vertrauen.
-            var verstoss = [];
-            tok(j.vorschlag || "").forEach(function (t) {
-              var hit = tabuTreffer(t, tabuS);
-              if (hit && verstoss.indexOf(hit) === -1) verstoss.push(hit);
+          var norm = function (x) { return x.toLowerCase().replace(/[\s„“"»«]+/g, " ").replace(/[^\wäöüß ]/g, "").trim(); };
+          var ergebnisse = await pool(pakete, 3, async function (pk) {
+            var j = await askJSON(P.stellen(topic, pk.fragen.map(function (f) { return f.frage; }), pk.text, tabuL));
+            var ant = j.antworten || [];
+            return pk.fragen.map(function (f, idx) {
+              var a2 = ant.filter(function (x) { return +x.i === idx + 1; })[0] || ant[idx] || {};
+              var zitat = String(a2.stelle || "").trim();
+              var verstoss = [];
+              tok(a2.vorschlag || "").forEach(function (t) {
+                var hit = tabuTreffer(t, tabuS);
+                if (hit && verstoss.indexOf(hit) === -1) verstoss.push(hit);
+              });
+              return {
+                frage: f.frage, chunk: pk.chunk, blind: f.blind,
+                stelle: zitat, woertlich: zitat.length > 0 && norm(pk.text).indexOf(norm(zitat)) !== -1,
+                guete: a2.guete || (zitat ? "indirekt" : "keine"),
+                problem: a2.problem || "", vorschlag: a2.vorschlag || "", verstoss: verstoss
+              };
             });
-            return {
-              frage: b.frage, chunk: b.chunk, blind: b.blind,
-              stelle: zitat, woertlich: woertlich,
-              guete: j.guete || (zitat ? "indirekt" : "keine"),
-              problem: j.problem || "", vorschlag: j.vorschlag || "", verstoss: verstoss
-            };
-          }, function (n, t) { say("Stelle " + n + " von " + t + " geprüft …"); });
-          stellen = stellen.filter(function (x) { return x && !x.error; });
+          }, function (n, t) { say("Stellen: Paket " + n + " von " + t + " …"); });
+          ergebnisse.forEach(function (g) { if (g && !g.error && g.length) stellen = stellen.concat(g); });
         }
       } catch (e) { }
 
@@ -1781,7 +1883,8 @@
 
       var schluessel = verlaufSchluessel(topic, own);
       var vorher = letzterLauf(schluessel, null);
-      RESULT = { schluessel: schluessel, vorher: vorher, topic: topic, target: target, ovl: ovl, ziel: T(), w: W, tabu: tabuStems(), chunks: chunks, fragen: fragen, vector: vector, stellen: stellen, rivals: rlist, cmp: cmp };
+      var kosten = { aufrufe: KOSTEN.aufrufe, ein: KOSTEN.ein, aus: KOSTEN.aus, geschaetzt: KOSTEN.geschaetzt, summe: kostenSumme(), proModell: KOSTEN.proModell };
+      RESULT = { kosten: kosten, schluessel: schluessel, vorher: vorher, topic: topic, target: target, ovl: ovl, ziel: T(), w: W, tabu: tabuStems(), chunks: chunks, fragen: fragen, vector: vector, stellen: stellen, rivals: rlist, cmp: cmp };
       if (SPEICHER_OK) {
         var ok2 = RESULT.chunks.filter(function (c) { return !c.error; });
         var mw = function (f) { return ok2.length ? ok2.reduce(function (a, c) { return a + f(c); }, 0) / ok2.length : 0; };
@@ -1792,6 +1895,7 @@
           gesamt: eig2 * W.e + dic2 * W.d + pra2 * W.p, eig: eig2, dic: dic2, pra: pra2,
           blind: RESULT.vector ? RESULT.vector.rows.filter(function (x) { return x.blind; }).length : null,
           fragen: RESULT.vector ? RESULT.vector.rows.length : 0,
+          kosten: kosten.summe,
           messart: RESULT.vector && RESULT.vector.echt ? "embeddings" : "wortabgleich",
           schwelle: RESULT.vector ? RESULT.vector.floorQuelle : null
         });

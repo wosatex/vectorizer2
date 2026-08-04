@@ -101,7 +101,29 @@ Das Feld für den Anthropic-Schlüssel erscheint automatisch, sobald die App auf
 
 **Beide Schlüssel bleiben nur im geöffneten Tab.** Sie werden nicht gespeichert, nicht in den Verlauf geschrieben und nicht an Dritte weitergegeben — jeder geht direkt an seinen Anbieter. Nach dem Neuladen sind sie weg und müssen erneut eingegeben werden. Das ist bewusst so: Was in `localStorage` liegt, liest jedes eingeschleuste Skript mit.
 
-Grobe Kosten pro Durchlauf einer normalen Seite: wenige Cent bei Anthropic, Bruchteile eines Cents für die Embeddings. Setz in beiden Konten ein Monatslimit.
+### Was ein Durchlauf kostet
+
+Gemessen an einer echten Seite mit 11 Abschnitten und 16 Anfragen, nach den Verbrauchsangaben der API:
+
+| | Aufrufe | Kosten |
+|---|---|---|
+| ursprünglich, alles mit Sonnet | 25 | $0,107 |
+| jetzt | 17 | **$0,045** |
+
+Für eine große Landingpage mit 30 Abschnitten skaliert das etwa auf das Zweieinhalbfache, also rund 11 Cent statt vorher 25. Die Embeddings kosten zusätzlich Bruchteile eines Cents.
+
+Vier Maßnahmen bringen die Ersparnis:
+
+- **Zwei Modelle statt einem.** Die Abschnittsbewertung folgt einem festen Schema und läuft mit Haiku 4.5 zu einem Drittel des Preises. Formuliert wird weiter mit Sonnet 4.6. Ist Haiku nicht verfügbar, schaltet das Tool nach dem ersten Fehlschlag stillschweigend zurück.
+- **Zitatstellen nach Abschnitt gebündelt** und auf die zehn aussagekräftigsten Anfragen begrenzt — echte Suchanfragen mit Potenzial und unbeantwortete Fragen zuerst.
+- **Fragen aus den Kernaussagen** statt aus 7.000 Zeichen Volltext. Die Zusammenfassungen liegen zu dem Zeitpunkt bereits vor.
+- **Doc2Query-Felder nur ohne Embeddings.** Mit echtem Embedding-Modell entfallen die Felder `terme` und `fragen` sowie der ganze Aufruf zur Begriffserweiterung — sie schließen eine Lücke, die dann nicht existiert. Ausgabe kostet das Fünffache von Eingabe, deshalb wiegt das schwerer, als die Tokenzahl vermuten lässt.
+
+Nach jedem Durchlauf zeigt das Tool den tatsächlichen Verbrauch: Aufrufe, Tokens, Kosten in Dollar und Euro, aufgeschlüsselt nach Modell. Der Verlauf hält die Kosten je Lauf fest.
+
+Nicht nutzbar: **Prompt-Caching** braucht einen zwischenspeicherbaren Präfix von mindestens 1.024 Tokens, der Anweisungsblock hat nur rund 350. Die **Batch-API** mit 50 % Rabatt arbeitet asynchron und passt nicht zu einem interaktiven Werkzeug.
+
+Setz in beiden Konten ein Monatslimit.
 
 ---
 

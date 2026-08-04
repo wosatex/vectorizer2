@@ -61,7 +61,6 @@
     transition: border-color .15s, background .15s;
   }
   .drop:hover { border-color: rgba(var(--b), .7); background: rgba(var(--b), .04); }
-  .src { font-size: 11.5px; font-family: var(--mono); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
   .src.chance { background: rgba(var(--b), .14); }
   .src.kontrolle { background: rgba(var(--b), .07); }
   .src.llm { background: transparent; color: var(--muted); border: 1px solid var(--line); }
@@ -134,10 +133,16 @@
   .mwrap { overflow-x: auto; padding-bottom: 4px; }
   table { border-collapse: separate; border-spacing: 3px; }
   th { font-weight: 400; font-size: 11px; color: var(--muted); font-family: var(--mono); padding-bottom: 6px; }
-  th.q { text-align: left; font-family: var(--sans); font-size: 13.5px; color: var(--ink); padding-right: 16px; min-width: 210px; max-width: 320px; line-height: 1.35; }
-  th.q span { color: var(--muted); font-size: 12.5px; }
+  th.q { text-align: left; font-family: var(--sans); font-size: 13.5px; color: var(--ink); padding: 6px 18px 6px 0; width: 270px; line-height: 1.35; vertical-align: middle; }
+  th.q .qt { display: block; white-space: normal; overflow-wrap: anywhere; margin-bottom: 5px; }
+  th.q .qh { display: inline-block; color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .src { display: inline-block; font-size: 11.5px; font-family: var(--mono); border-radius: 4px; padding: 2px 7px; white-space: nowrap; vertical-align: middle; }
   .cell { width: 22px; height: 22px; border-radius: 4px; background: rgba(var(--b), .08); box-shadow: inset 0 0 0 1px rgba(var(--b), .14); }
   .cell.best { box-shadow: inset 0 0 0 1px rgba(var(--b), .14), 0 0 0 2px var(--ink); }
+  @media (max-width: 760px) {
+    th.q { width: 190px; font-size: 13px; }
+    .cell { width: 20px; height: 20px; }
+  }
   .legend { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-size: 12.5px; color: var(--muted); }
   .ramp { width: 190px; height: 12px; border-radius: 6px; background: linear-gradient(90deg, rgba(var(--b), .14), rgba(var(--b), 1)); box-shadow: inset 0 0 0 1px rgba(var(--b), .14); }
 
@@ -190,6 +195,12 @@
   .cmp .val.win { color: var(--ink); font-weight: 600; }
   .mini { display: block; height: 4px; border-radius: 2px; background: rgba(var(--b), .1); margin-top: 6px; width: 56px; }
   .mini i { display: block; height: 100%; border-radius: 2px; background: rgba(var(--b), 1); }
+
+  .spalten { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 2px 24px; }
+  .spalte { display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .spalte .nr { font-family: var(--mono); font-size: 12px; color: var(--muted); padding-top: 2px; }
+  .spalte b { font-size: 13.5px; font-weight: 600; }
+  .spalte p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
 
   .ghost { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; cursor: pointer; font-size: 14px; }
   .ghost:hover { border-color: rgba(var(--b), 1); color: rgba(var(--b), 1); }
@@ -1194,29 +1205,48 @@
         '<p class="read"><b>Gemessen mit ' + (v.echt ? 'echten Embeddings' : 'Wortabgleich im Browser') + '.</b> Schwelle bei ' + Math.round(v.floor * 100) + ' — ' +
         (v.floorQuelle === "kontrolle"
           ? 'abgeleitet aus deinen Anfragen mit belegter Top-Position: Was für eine nachweislich funktionierende Anfrage reicht, gilt als Untergrenze. Das ist keine Schätzung mehr.'
-          : 'geschätzt, weil keine zwei Anfragen mit belegter Top-Position vorliegen. Lade Search-Console-Daten, dann wird die Schwelle aus der Wirklichkeit abgeleitet.') + '</p>' +
-        '<div class="mwrap"><table><thead><tr><th class="q"></th>' +
+          : 'geschätzt, weil keine zwei Anfragen mit belegter Top-Position vorliegen. Lade Search-Console-Daten, dann wird die Schwelle aus der Wirklichkeit abgeleitet.') + '</p>';
+
+      // Dichte Vektoren liegen alle hoch und dicht beieinander. Gegen 0..peak
+      // skaliert sieht dann jede Zelle gleich aus. Gestreckt wird deshalb
+      // über den tatsächlich vorkommenden Wertebereich.
+      var alleWerte = [];
+      v.rows.forEach(function (rw) { rw.row.forEach(function (z) { alleWerte.push(z); }); });
+      var lo = Math.min.apply(null, alleWerte), hi = Math.max.apply(null, alleWerte);
+      var spanne = (hi - lo) || 1;
+
+      h += '<div class="mwrap"><table><thead><tr><th class="q"></th>' +
         v.cols.map(function (c) { return "<th>" + pad(c + 1) + "</th>"; }).join("") + '</tr></thead><tbody>';
       v.rows.forEach(function (row) {
         var q = row.quelle === "chance" ? '<span class="src chance">Chance · Pos ' + fx(row.pos) + '</span>'
           : row.quelle === "kontrolle" ? '<span class="src kontrolle">Kontrolle · Pos ' + fx(row.pos) + '</span>'
             : row.quelle === "eigen" ? '<span class="src llm">eigene Frage</span>'
               : '<span class="src llm">erzeugt</span>';
-        h += '<tr><th class="q">' + esc(row.frage) + '<br>' + q + ' ' +
-          (row.blind ? '<span>— keine Antwort</span>' : row.knapp ? '<span>— unklar welcher</span>' : '') + '</th>';
+        h += '<tr><th class="q"><span class="qt">' + esc(row.frage) + '</span>' + q +
+          (row.blind ? '<span class="qh">keine Antwort</span>' : row.knapp ? '<span class="qh">unklar welcher</span>' : '') + '</th>';
         row.row.forEach(function (s, j) {
           // Wurzel statt linear und Untergrenze 0,14: sonst verschwinden
           // drei Viertel der Zellen im Weiß und die Matrix wirkt leer.
-          var anteil = Math.max(0, Math.min(1, s / v.peak));
-          var deckung = s <= 0.0001 ? 0.06 : 0.14 + Math.sqrt(anteil) * 0.86;
+          var anteil = Math.max(0, Math.min(1, (s - lo) / spanne));
+          var deckung = s <= 0.0001 ? 0.06 : 0.12 + anteil * 0.88;
           var best = v.cols[j] === row.bestChunk && !row.blind;
+          var ka = (r.chunks[v.cols[j]] && r.chunks[v.cols[j]].kernaussage) || "";
           h += '<td><div class="cell' + (best ? ' best' : '') + '" style="background:' + alpha(deckung) +
-            '" title="Abschnitt ' + pad(v.cols[j] + 1) + ' · ' + Math.round(s * 100) + '"></div></td>';
+            '" title="' + esc(pad(v.cols[j] + 1) + " · " + (ka || "Abschnitt") + " · Wert " + Math.round(s * 100)) + '"></div></td>';
         });
         h += '</tr>';
       });
       h += '</tbody></table></div>' +
-        '<div class="legend"><span>passt kaum</span><span class="ramp"></span><span>passt genau</span><span style="margin-left:14px">Rahmen = bester Treffer · Zahl beim Überfahren</span></div>';
+        '<div class="legend"><span>schwächster Wert (' + Math.round(lo * 100) + ')</span><span class="ramp"></span><span>stärkster (' + Math.round(hi * 100) + ')</span>' +
+        '<span style="margin-left:14px">Rahmen = bester Treffer</span></div>' +
+        '<h3 class="sub">Welche Spalte ist welcher Abschnitt?</h3>' +
+        '<p class="read">Die Nummern oben verweisen auf diese Abschnitte deines Textes. Der Anfang steht dabei, damit du die Stelle wiederfindest, ohne nach oben zu scrollen.</p>' +
+        '<div class="spalten">' + v.cols.map(function (ci) {
+          var cc = r.chunks[ci] || {};
+          var txt = String(cc.text || "").replace(/\s+/g, " ").trim();
+          return '<div class="spalte"><span class="nr">' + pad(ci + 1) + '</span><div><b>' +
+            esc(cc.kernaussage || "—") + '</b><p>' + esc(txt.slice(0, 150)) + (txt.length > 150 ? "…" : "") + '</p></div></div>';
+        }).join("") + '</div>';
 
       if (blind.length) {
         h += '<h3 class="sub">Fragen ohne Antwort</h3><p class="read">Für diese Fragen gibt es in deinem Text keinen Absatz, den eine KI zitieren könnte. Das sind die Lücken, die du zuerst füllen solltest.</p>';

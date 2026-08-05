@@ -379,7 +379,7 @@
      betreibst — dann laufen ALLE Aufrufe über DEIN Budget. Siehe README.
      ======================================================================= */
   var PROXY_URL = "";
-  var FASSUNG = "2026-08-05-c";   // muss mit VERSION in sw.js übereinstimmen
+  var FASSUNG = "2026-08-05-d";   // muss mit VERSION in sw.js übereinstimmen
   // Zwei Modelle statt einem: Die Abschnittsbewertung ist eine mechanische,
   // eng vorgegebene Aufgabe — dafür reicht das kleine Modell zu einem Drittel
   // des Preises. Formuliert wird weiter mit dem großen.
@@ -1308,7 +1308,7 @@
       h += '<div class="note" style="margin-top:18px;border-left-color:' + alpha(0.35) + '">' +
         '<b>Messgenauigkeit der Gesamtnote: ±' + fx2(unabh) + ' Punkte</b>' +
         '<p>Jeder Abschnitt wurde dreimal bewertet, angezeigt wird der Mittelwert. Über ' + nS +
-        ' Abschnitte mittelt sich die Schwankung weitgehend heraus — sofern die Abweichungen unabhängig voneinander sind. Wären sie gleichgerichtet, läge die Unsicherheit bei bis zu ±' + fx2(korr / 2) + '. ' +
+        ' Abschnitte mittelt sich die Schwankung weitgehend heraus — sofern die Abweichungen unabhängig voneinander sind. Wären sie gleichgerichtet, läge die Unsicherheit bei bis zu ±' + fx2(korr) + '. ' +
         'Veränderungen im Verlauf sind ab etwa ' + fx2(schwelleV) + ' Punkten belastbar. Ob die Annahme stimmt, klärt ein zweiter Lauf desselben unveränderten Textes: Weichen die Gesamtnoten um weniger als ' + fx2(schwelleV) + ' voneinander ab, passt sie.</p></div>';
       var unein = mitStreu.filter(function (c) { return c.streuung >= 1; })
         .sort(function (a2, b2) { return b2.streuung - a2.streuung; });

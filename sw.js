@@ -4,7 +4,7 @@
    geht ungefiltert durch und wird nie aus dem Cache beantwortet. Eine
    gecachte Modellantwort waere schlimmer als gar keine. */
 
-const VERSION = "vectorizer-v1";
+const VERSION = "vectorizer-2026-08-05-a";
 const HUELLE = [
   "./",
   "./index.html",
@@ -45,7 +45,9 @@ self.addEventListener("fetch", (e) => {
   // Seitenaufrufe: erst Netz, bei Ausfall die gespeicherte Huelle.
   if (req.mode === "navigate") {
     e.respondWith(
-      fetch(req)
+      // no-store: sonst liefert der HTTP-Cache des Browsers die alte Seite
+      // aus, und das Update kommt trotz Netzverbindung nicht an.
+      fetch(req, { cache: "no-store" })
         .then((res) => {
           const kopie = res.clone();
           caches.open(VERSION).then((c) => c.put("./index.html", kopie));

@@ -347,6 +347,7 @@
      betreibst — dann laufen ALLE Aufrufe über DEIN Budget. Siehe README.
      ======================================================================= */
   var PROXY_URL = "";
+  var FASSUNG = "2026-08-05-a";   // muss mit VERSION in sw.js übereinstimmen
   // Zwei Modelle statt einem: Die Abschnittsbewertung ist eine mechanische,
   // eng vorgegebene Aufgabe — dafür reicht das kleine Modell zu einem Drittel
   // des Preises. Formuliert wird weiter mit dem großen.
@@ -1107,10 +1108,20 @@
     catch (e) { return false; }
   })();
 
-  /* Service Worker: nur auf einer echten Adresse, nie im eingebetteten Rahmen. */
+  /* Service Worker: nur auf einer echten Adresse, nie im eingebetteten Rahmen.
+     Übernimmt ein neuer Worker die Kontrolle, wird einmal neu geladen —
+     sonst sieht man nach einem Update weiter die alte Fassung. */
   if ("serviceWorker" in navigator && /^https:$/.test(location.protocol)) {
+    var hatteController = !!navigator.serviceWorker.controller;
+    var schonNeu = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (hatteController && !schonNeu) { schonNeu = true; location.reload(); }
+    });
     window.addEventListener("load", function () {
-      navigator.serviceWorker.register("sw.js").catch(function () { });
+      navigator.serviceWorker.register("sw.js").then(function (reg) {
+        reg.update();                                  // bei jedem Start nachsehen
+        setInterval(function () { reg.update(); }, 60 * 60 * 1000);
+      }).catch(function () { });
     });
   }
 
@@ -1776,7 +1787,7 @@
   $("#ovl").addEventListener("change", updateMeta);
   $("#target").addEventListener("change", updateMeta);
   updateMeta();
-  $("#mode").textContent = PROXY_URL ? "Modus: eigener Proxy" : "Modus: ohne Einrichtung";
+  $("#mode").textContent = (PROXY_URL ? "Modus: eigener Proxy" : "Modus: ohne Einrichtung") + " · Fassung " + FASSUNG;
 
   /* ---------- Ablauf ---------- */
   $("#run").addEventListener("click", async function () {

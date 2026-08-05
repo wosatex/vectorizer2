@@ -4,7 +4,7 @@
    geht ungefiltert durch und wird nie aus dem Cache beantwortet. Eine
    gecachte Modellantwort waere schlimmer als gar keine. */
 
-const VERSION = "vectorizer-2026-08-05-a";
+const VERSION = "vectorizer-2026-08-05-b";
 const HUELLE = [
   "./",
   "./index.html",

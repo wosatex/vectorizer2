@@ -205,6 +205,22 @@
   .spalte b { font-size: 13.5px; font-weight: 600; }
   .spalte p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
 
+  details.grp { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 12px; background: var(--bg); }
+  details.grp > summary {
+    cursor: pointer; padding: 11px 14px; font-size: 13.5px; font-weight: 500;
+    list-style: none; display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  }
+  details.grp > summary::-webkit-details-marker { display: none; }
+  details.grp > summary::after { content: "+"; color: var(--muted); font-weight: 400; }
+  details.grp[open] > summary::after { content: "–"; }
+  details.grp .inner { padding: 2px 14px 14px; }
+  details.grp .st { color: var(--muted); font-weight: 400; font-size: 12px; text-align: right; }
+  .bar2 { height: 4px; border-radius: 2px; background: rgba(var(--b), .12); margin-top: 10px; overflow: hidden; }
+  .bar2 i { display: block; height: 100%; background: rgba(var(--b), 1); transition: width .3s; }
+  .resnav { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 36px; font-size: 13px; }
+  .resnav a { color: rgba(var(--b), 1); text-decoration: none; }
+  .resnav a:hover { text-decoration: underline; }
+
   .ghost { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; cursor: pointer; font-size: 14px; }
   .ghost:hover { border-color: rgba(var(--b), 1); color: rgba(var(--b), 1); }
   footer { border-top: 1px solid var(--line); padding: 24px 0 60px; color: var(--muted); font-size: 13px; }
@@ -226,7 +242,7 @@
       <input id="key" class="in" type="password" placeholder="sk-ant-…" autocomplete="off">
       <p class="hint" id="keyhint">Nötig auf einer eigenen Adresse. Damit laufen Bewertung, Fragen und Vorschläge. Zu holen unter console.anthropic.com. Der Schlüssel bleibt in diesem Tab.</p>
     </div>
-    <p class="hint" id="keytoggle" style="margin:-8px 0 20px"><button class="linky" type="button" id="showkey">Selbst gehostet? Anthropic-Schlüssel eintragen</button></p>
+    <p class="hint" id="keytoggle" style="margin:0 0 18px"><button class="linky" type="button" id="showkey">Selbst gehostet? Anthropic-Schlüssel eintragen</button></p>
 
     <div class="field">
       <label for="topic">Thema oder Hauptkeyword</label>
@@ -234,87 +250,103 @@
     </div>
 
     <div class="field">
-      <label for="tabu">Markensprache <span class="opt">— Begriffe, die nicht verwendet werden dürfen</span></label>
-      <input id="tabu" class="in" type="text" placeholder="z. B. Hotel, Resort, Pauschalreise">
-      <p class="hint">Kommagetrennt. Diese Wörter werden nie zur Aufnahme empfohlen, auch wenn sie in Suchanfragen vorkommen. Vorschläge halten sich daran.</p>
-    </div>
-
-    <div class="field">
       <label for="own">Dein Text</label>
       <textarea id="own" class="in" placeholder="Volltext einfügen."></textarea>
       <p class="hint" id="meta">0 Zeichen</p>
+      <p class="hint"><button class="linky" type="button" id="demo">Beispiel laden — zum Ausprobieren ohne eigenen Text</button></p>
     </div>
 
-    <div class="field">
-      <label for="emb">Embeddings <span class="opt">— echte Vektoren statt Wortabgleich</span></label>
-      <select id="emb" class="in">
-        <option value="keine" selected>Keine — nur Wortabgleich im Browser</option>
-        <option value="gemini">Google Gemini — gemini-embedding-001</option>
-        <option value="openai">OpenAI — text-embedding-3-small</option>
-      </select>
-      <input id="embkey" class="in" type="password" placeholder="Schlüssel von Google bzw. OpenAI — nicht der Anthropic-Schlüssel" autocomplete="off" style="margin-top:8px" hidden>
-      <p class="hint" id="embinfo">Ohne Embeddings vergleicht Vectorizer nur Wörter und Wortstämme. Synonyme erkennt es dann nicht.</p>
-    </div>
+    <details class="grp" id="g-gsc">
+      <summary>Echte Suchanfragen <span class="st" id="st-gsc">leer</span></summary>
+      <div class="inner">
+        <label class="drop" for="csv">CSV-Datei aus der Search Console wählen<input id="csv" type="file" accept=".csv,text/csv,text/plain" hidden></label>
+        <textarea id="gsc" class="in small" placeholder="Oder hier einfügen: CSV aus der GSC, oder je Zeile &#10;anfrage;impressionen;position"></textarea>
+        <input id="brand" class="in" type="text" placeholder="Markenwörter zum Ausfiltern, kommagetrennt" style="margin-top:8px">
+        <p class="hint" id="gscinfo">Ohne diese Daten prüft Vectorizer nur selbst erzeugte Fragen — mit ihnen misst es gegen echte Nachfrage.</p>
+      </div>
+    </details>
 
-    <div class="field">
-      <label for="target">Zielsystem — wo landet der Text?</label>
-      <select id="target" class="in">
-        <option value="unknown" selected>Unbekannt oder gemischt</option>
-        <option value="google">Google Gemini</option>
-        <option value="openai">OpenAI</option>
-        <option value="voyage">Anthropic / Voyage</option>
-        <option value="voyagectx">Voyage, kontextualisiert</option>
-      </select>
-      <p class="hint" id="tinfo"></p>
-    </div>
+    <details class="grp" id="g-riv">
+      <summary>Wettbewerber vergleichen <span class="st" id="st-riv">keine</span></summary>
+      <div class="inner">
+        <div id="rivals"></div>
+        <button class="linky" id="add" type="button">+ Wettbewerber hinzufügen</button>
+      </div>
+    </details>
 
-    <div class="field">
-      <label for="size">Wie fein soll zerlegt werden?</label>
-      <select id="size" class="in">
-        <option value="120">Klein — 120 Token</option>
-        <option value="220" selected>Mittel — 220 Token</option>
-        <option value="350">Groß — 350 Token</option>
-      </select>
-      <label for="ovl" style="margin-top:14px">Überlappung</label>
-      <select id="ovl" class="in">
-        <option value="0">Keine</option>
-        <option value="15" selected>15 % — wie in den meisten Pipelines</option>
-        <option value="25">25 % — für stark verzahnte Texte</option>
-      </select>
-      <p class="hint">Überlappung nimmt das Ende eines Abschnitts in den nächsten mit, damit ein Gedanke nicht an der Schnittkante zerreißt.</p>
-    </div>
+    <details class="grp" id="g-mess">
+      <summary>Messung <span class="st" id="st-mess">Standard</span></summary>
+      <div class="inner">
+        <div class="field">
+          <label for="emb">Embeddings <span class="opt">— echte Vektoren statt Wortabgleich</span></label>
+          <select id="emb" class="in">
+            <option value="keine" selected>Keine — nur Wortabgleich im Browser</option>
+            <option value="gemini">Google Gemini — gemini-embedding-001</option>
+            <option value="openai">OpenAI — text-embedding-3-small</option>
+          </select>
+          <input id="embkey" class="in" type="password" placeholder="Schlüssel von Google bzw. OpenAI — nicht der Anthropic-Schlüssel" autocomplete="off" style="margin-top:8px" hidden>
+          <p class="hint" id="embinfo">Ohne Embeddings vergleicht Vectorizer nur Wörter und Wortstämme. Synonyme erkennt es dann nicht.</p>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="mehrfach">
+          <span>Genauer messen: jeden Abschnitt dreimal bewerten und den Mittelwert nehmen. Zeigt zugleich, wie stark die Bewertung schwankt. Verdreifacht die Kosten der Abschnittsbewertung.</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="ws">
+          <span>Testfragen zusätzlich per Websuche schärfen (dauert länger)</span>
+        </label>
+      </div>
+    </details>
 
-    <div class="field">
-      <label>Wettbewerbertexte <span class="opt">— optional</span></label>
-      <div id="rivals"></div>
-      <button class="linky" id="add" type="button">+ Wettbewerber hinzufügen</button>
-    </div>
+    <details class="grp" id="g-zer">
+      <summary>Zerlegung &amp; Zielsystem <span class="st" id="st-zer"></span></summary>
+      <div class="inner">
+        <div class="field">
+          <label for="target">Zielsystem — wo landet der Text?</label>
+          <select id="target" class="in">
+            <option value="unknown" selected>Unbekannt oder gemischt</option>
+            <option value="google">Google Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="voyage">Anthropic / Voyage</option>
+            <option value="voyagectx">Voyage, kontextualisiert</option>
+          </select>
+          <p class="hint" id="tinfo"></p>
+        </div>
+        <div class="field">
+          <label for="size">Wie fein soll zerlegt werden?</label>
+          <select id="size" class="in">
+            <option value="120">Klein — 120 Token</option>
+            <option value="220" selected>Mittel — 220 Token</option>
+            <option value="350">Groß — 350 Token</option>
+          </select>
+          <label for="ovl" style="margin-top:14px">Überlappung</label>
+          <select id="ovl" class="in">
+            <option value="0">Keine</option>
+            <option value="15" selected>15 % — wie in den meisten Pipelines</option>
+            <option value="25">25 % — für stark verzahnte Texte</option>
+          </select>
+          <p class="hint">Überlappung nimmt das Ende eines Abschnitts in den nächsten mit, damit ein Gedanke nicht an der Schnittkante zerreißt.</p>
+        </div>
+      </div>
+    </details>
 
-    <div class="field">
-      <label>Echte Suchanfragen <span class="opt">— aus der Search Console</span></label>
-      <label class="drop" for="csv">CSV-Datei wählen<input id="csv" type="file" accept=".csv,text/csv,text/plain" hidden></label>
-      <textarea id="gsc" class="in small" placeholder="Oder hier einfügen: CSV aus der GSC, oder je Zeile &#10;anfrage;impressionen;position"></textarea>
-      <input id="brand" class="in" type="text" placeholder="Markenwörter zum Ausfiltern, kommagetrennt" style="margin-top:8px">
-      <p class="hint" id="gscinfo">Noch keine Anfragen geladen. Ohne diese Daten prüft Vectorizer nur selbst erzeugte Fragen.</p>
-    </div>
-
-    <div class="field">
-      <label for="tests">Eigene Testfragen <span class="opt">— optional</span></label>
-      <textarea id="tests" class="in small" placeholder="Eine Frage pro Zeile."></textarea>
-    </div>
-
-    <label class="check">
-      <input type="checkbox" id="mehrfach">
-      <span>Genauer messen: jeden Abschnitt dreimal bewerten und den Mittelwert nehmen. Zeigt zugleich, wie stark die Bewertung schwankt. Verdreifacht die Kosten der Abschnittsbewertung.</span>
-    </label>
-
-    <label class="check">
-      <input type="checkbox" id="ws">
-      <span>Testfragen zusätzlich per Websuche schärfen (dauert länger)</span>
-    </label>
+    <details class="grp" id="g-marke">
+      <summary>Markensprache &amp; eigene Fragen <span class="st" id="st-marke">leer</span></summary>
+      <div class="inner">
+        <div class="field">
+          <label for="tabu">Markensprache <span class="opt">— Begriffe, die nicht verwendet werden dürfen</span></label>
+          <input id="tabu" class="in" type="text" placeholder="z. B. Hotel, Resort, Pauschalreise">
+          <p class="hint">Kommagetrennt. Diese Wörter werden nie zur Aufnahme empfohlen, auch wenn sie in Suchanfragen vorkommen. Vorschläge halten sich daran.</p>
+        </div>
+        <div class="field">
+          <label for="tests">Eigene Testfragen <span class="opt">— optional</span></label>
+          <textarea id="tests" class="in small" placeholder="Eine Frage pro Zeile."></textarea>
+        </div>
+      </div>
+    </details>
 
     <button class="run" id="run" type="button">Text prüfen</button>
-    <p class="hint">Dauert 30–90 Sekunden, je nach Textlänge.</p>
+    <p class="hint">Zwei Angaben genügen: Thema und Text. Alles andere lässt sich zuschalten. Dauert 30–90 Sekunden, mit Dreifachmessung entsprechend länger.</p>
   </aside>
 
   <main id="out">
@@ -347,7 +379,7 @@
      betreibst — dann laufen ALLE Aufrufe über DEIN Budget. Siehe README.
      ======================================================================= */
   var PROXY_URL = "";
-  var FASSUNG = "2026-08-05-a";   // muss mit VERSION in sw.js übereinstimmen
+  var FASSUNG = "2026-08-05-b";   // muss mit VERSION in sw.js übereinstimmen
   // Zwei Modelle statt einem: Die Abschnittsbewertung ist eine mechanische,
   // eng vorgegebene Aufgabe — dafür reicht das kleine Modell zu einem Drittel
   // des Preises. Formuliert wird weiter mit dem großen.
@@ -891,6 +923,7 @@
     if (!parsed.length) { el.textContent = "Keine Anfragen erkannt. Erwartet wird ein GSC-Export mit Spaltenüberschriften, oder je Zeile: anfrage;impressionen;position."; return; }
     el.textContent = parsed.length + " Anfragen gelesen · " + b.rows.length + " nach Filter · " +
       b.chance.length + " Chancen (Position 8–30) · " + b.kontrolle.length + " Kontrolle (Position 1–5). Unter 10 Impressionen wird verworfen.";
+    if (typeof updateSummaries === "function") updateSummaries();
   }
   $("#csv").addEventListener("change", function (e) {
     var f = e.target.files && e.target.files[0];
@@ -1189,10 +1222,12 @@
   /* ---------- Darstellung ---------- */
   // Deutsches Dezimalkomma. Nur für die Anzeige — nie in CSS-Werten verwenden.
   var fx = function (n) { return (Math.round(n * 10) / 10).toFixed(1).replace(".", ","); };
+  var fx2 = function (n) { return (Math.round(n * 100) / 100).toFixed(2).replace(".", ","); };
   var pad = function (n) { return n < 10 ? "0" + n : String(n); };
   var alpha = function (x) { return "rgba(var(--b), " + Math.max(0, Math.min(1, x)).toFixed(3) + ")"; };
-  function say(msg, err) {
-    $("#out").innerHTML = '<div class="status' + (err ? " err" : "") + '">' + esc(msg) + "</div>";
+  function say(msg, err, frac) {
+    $("#out").innerHTML = '<div class="status' + (err ? " err" : "") + '">' + esc(msg) +
+      (frac != null ? '<div class="bar2"><i style="width:' + Math.round(Math.min(1, Math.max(0, frac)) * 100) + '%"></i></div>' : '') + '</div>';
   }
 
   function render(r) {
@@ -1210,25 +1245,7 @@
     var zuLang = r.chunks.filter(function (c) { return tokOf(c.len) > z.maxTok; });
     var h = "";
 
-    /* 0 — Zielsystem */
-    h += '<section><h2>Zielsystem: ' + esc(z.name) + '</h2>' +
-      '<p class="read">Zerlegt wird ein Text nicht vom Sprachmodell, sondern von deiner Pipeline. Unterschiedlich ist das Embedding-Modell dahinter — und dessen Grenzen gelten für deine Abschnitte.</p>' +
-      '<dl class="kv" style="margin-top:0">' +
-      '<dt>Modell</dt><dd>' + esc(z.model) + '</dd>' +
-      '<dt>Grenze je Abschnitt</dt><dd>' + z.maxTok.toLocaleString("de-DE") + ' Token — dein längster: etwa ' + tokOf(maxLen).toLocaleString("de-DE") + '</dd>' +
-      '<dt>Vektorlänge</dt><dd>' + esc(z.dims) + '</dd>' +
-      '<dt>Frage und Absatz</dt><dd>' + esc(z.asym) + '</dd>' +
-      '</dl>' +
-      '<div class="verdict" style="margin-top:20px">' + esc(z.hinweis) + '</div>';
-    if (zuLang.length) {
-      h += '<div class="note" style="margin-top:16px"><b>' + zuLang.length + ' Abschnitt' + (zuLang.length > 1 ? 'e sind' : ' ist') + ' zu lang</b>' +
-        '<p>Abschnitt ' + zuLang.map(function (c) { return "<code>" + pad(r.chunks.indexOf(c) + 1) + "</code>"; }).join(", ") +
-        ' — hier wird der hintere Teil beim Einlesen abgeschnitten. Absatz aufteilen oder eine feinere Zerlegung wählen.</p></div>';
-    }
-    if (z.ctx) {
-      h += '<p class="read" style="margin-top:16px">Weil dieses Modell den Zusammenhang selbst mitkodiert, zählt „Steht für sich" hier nur zu 15 % statt zu 45 %. Dafür wiegen Substanz und benannte Begriffe schwerer.</p>';
-    }
-    h += '</section>';
+
 
     /* 1 — Überblick */
     var urteil = tot >= 7
@@ -1236,7 +1253,7 @@
       : tot >= 5
         ? "Dein Text ist halb auffindbar. Einige Abschnitte ergeben ohne den Rest der Seite keinen Sinn oder bleiben zu allgemein."
         : "Dein Text ist schwer auffindbar. Viele Abschnitte sind auf den Zusammenhang angewiesen oder sagen nichts Konkretes.";
-    h += '<section><h2>Überblick</h2>' +
+    h += '<section id="sec-ueberblick"><h2>Überblick</h2>' +
       '<p class="read">Vier Werte von 0 bis 10. Je voller der Balken, desto besser. Der erste Wert fasst die drei anderen zusammen.</p>' +
       '<div class="scores">' +
       score(tot, "Auffindbarkeit", "Wie gut findet eine KI hier Antworten?") +
@@ -1263,14 +1280,29 @@
     }
     var mitStreu = ok.filter(function (c) { return c.streuung != null; });
     if (mitStreu.length) {
-      var sMit = mitStreu.reduce(function (a, c) { return a + c.streuung; }, 0) / mitStreu.length;
-      var sMax = Math.max.apply(null, mitStreu.map(function (c) { return c.streuung; }));
-      h += '<div class="note" style="margin-top:18px;border-left-color:' + alpha(sMit > 1 ? 1 : 0.35) + '">' +
-        '<b>Messgenauigkeit: ±' + fx(sMit / 2) + ' Punkte</b><p>Jeder Abschnitt wurde dreimal bewertet; angezeigt wird der Mittelwert. Die Bewertungen wichen im Schnitt um ' +
-        fx(sMit) + ' Punkte voneinander ab, im Extremfall um ' + fx(sMax) + '. ' +
-        (sMit > 1
-          ? '<b>Das ist viel.</b> Unterschiede unter ' + fx(sMit) + ' Punkten im Verlauf sind Rauschen, keine Verbesserung.'
-          : 'Veränderungen im Verlauf sind ab etwa ' + fx(sMit) + ' Punkten belastbar.') + '</p></div>';
+      // Spanne dreier Werte -> Standardabweichung (Erwartungswert der Spanne
+      // bei n=3 ist etwa 1,69 Sigma). Die Gesamtnote ist ein Mittelwert über
+      // alle Abschnitte: sind die Abweichungen unabhängig, mitteln sie sich
+      // weitgehend heraus. Sind sie gleichgerichtet, bleibt die volle Breite.
+      var sds = mitStreu.map(function (c) { return c.streuung / 1.69; });
+      var nS = sds.length;
+      var unabh = Math.sqrt(sds.reduce(function (a2, x) { return a2 + x * x; }, 0)) / nS;
+      var korr = sds.reduce(function (a2, x) { return a2 + x; }, 0) / nS;
+      var schwelleV = Math.max(0.1, 2 * unabh);
+      h += '<div class="note" style="margin-top:18px;border-left-color:' + alpha(0.35) + '">' +
+        '<b>Messgenauigkeit der Gesamtnote: ±' + fx2(unabh) + ' Punkte</b>' +
+        '<p>Jeder Abschnitt wurde dreimal bewertet, angezeigt wird der Mittelwert. Über ' + nS +
+        ' Abschnitte mittelt sich die Schwankung weitgehend heraus — sofern die Abweichungen unabhängig voneinander sind. Wären sie gleichgerichtet, läge die Unsicherheit bei bis zu ±' + fx2(korr / 2) + '. ' +
+        'Veränderungen im Verlauf sind ab etwa ' + fx2(schwelleV) + ' Punkten belastbar. Ob die Annahme stimmt, klärt ein zweiter Lauf desselben unveränderten Textes: Weichen die Gesamtnoten um weniger als ' + fx2(schwelleV) + ' voneinander ab, passt sie.</p></div>';
+      var unein = mitStreu.filter(function (c) { return c.streuung >= 1; })
+        .sort(function (a2, b2) { return b2.streuung - a2.streuung; });
+      if (unein.length) {
+        h += '<div class="note" style="border-left-color:' + alpha(1) + '"><b>Uneindeutig bewertete Abschnitte</b><p>' +
+          'Hier gingen die drei Bewertungen deutlich auseinander. Das ist kein Messfehler, sondern ein Hinweis: Diese Stellen sind selbst uneindeutig — meist auf der Kippe zwischen Aussage und Floskel. Auch zwei Menschen würden hier verschieden urteilen. Entscheide dich im Text für eine Seite.<br><br>' +
+          unein.slice(0, 5).map(function (c) {
+            return '<code>' + pad(r.chunks.indexOf(c) + 1) + '</code> ' + esc(c.kernaussage || "—") + ' — Spanne ' + fx(c.streuung);
+          }).join("<br>") + '</p></div>';
+      }
     } else {
       h += '<p class="read" style="margin-top:16px">Einfachmessung. Wie stark die Bewertung schwankt, ist damit unbekannt — für Vergleiche im Verlauf lohnt sich die Mehrfachmessung.</p>';
     }
@@ -1282,14 +1314,37 @@
         '<p>Damals ' + fx(r.vorher.gesamt) + ' bei ' + r.vorher.abschnitte + ' Abschnitten' +
         (r.vorher.blind != null ? ' und ' + r.vorher.blind + ' unbeantworteten Anfragen' : '') +
         '. Vergleichbar ist das nur bei gleicher Zerlegung und gleicher Messart (' + esc(r.vorher.messart) + ').' +
-        (r.vorher.streuung != null && Math.abs(delta) < r.vorher.streuung
-          ? ' <b>Achtung:</b> Der Unterschied liegt unter der damals gemessenen Schwankungsbreite von ' + fx(r.vorher.streuung) + ' Punkten — das kann Rauschen sein.'
-          : '') + '</p></div>';
+        (function () {
+          var g = r.vorher.unsicherheit != null ? r.vorher.unsicherheit : r.vorher.streuung;
+          return g != null && Math.abs(delta) < g
+            ? ' <b>Achtung:</b> Der Unterschied liegt unter der Belastbarkeitsschwelle von ' + fx2(g) + ' Punkten aus dem letzten Lauf — das kann Rauschen sein.'
+            : '';
+        })() + '</p></div>';
+    }
+    h += '</section>';
+
+    /* 0 — Zielsystem */
+    h += '<section id="sec-ziel"><h2>Zielsystem: ' + esc(z.name) + '</h2>' +
+      '<p class="read">Zerlegt wird ein Text nicht vom Sprachmodell, sondern von deiner Pipeline. Unterschiedlich ist das Embedding-Modell dahinter — und dessen Grenzen gelten für deine Abschnitte.</p>' +
+      '<dl class="kv" style="margin-top:0">' +
+      '<dt>Modell</dt><dd>' + esc(z.model) + '</dd>' +
+      '<dt>Grenze je Abschnitt</dt><dd>' + z.maxTok.toLocaleString("de-DE") + ' Token — dein längster: etwa ' + tokOf(maxLen).toLocaleString("de-DE") + '</dd>' +
+      '<dt>Vektorlänge</dt><dd>' + esc(z.dims) + '</dd>' +
+      '<dt>Frage und Absatz</dt><dd>' + esc(z.asym) + '</dd>' +
+      '</dl>' +
+      '<div class="verdict" style="margin-top:20px">' + esc(z.hinweis) + '</div>';
+    if (zuLang.length) {
+      h += '<div class="note" style="margin-top:16px"><b>' + zuLang.length + ' Abschnitt' + (zuLang.length > 1 ? 'e sind' : ' ist') + ' zu lang</b>' +
+        '<p>Abschnitt ' + zuLang.map(function (c) { return "<code>" + pad(r.chunks.indexOf(c) + 1) + "</code>"; }).join(", ") +
+        ' — hier wird der hintere Teil beim Einlesen abgeschnitten. Absatz aufteilen oder eine feinere Zerlegung wählen.</p></div>';
+    }
+    if (z.ctx) {
+      h += '<p class="read" style="margin-top:16px">Weil dieses Modell den Zusammenhang selbst mitkodiert, zählt „Steht für sich" hier nur zu 15 % statt zu 45 %. Dafür wiegen Substanz und benannte Begriffe schwerer.</p>';
     }
     h += '</section>';
 
     /* 2 — Abschnitte */
-    h += '<section><h2>Abschnitt für Abschnitt</h2>' +
+    h += '<section id="sec-abschnitte"><h2>Abschnitt für Abschnitt</h2>' +
       '<p class="read">So würde eine Vektordatenbank deinen Text zerschneiden — ' + r.chunks.length +
       ' Teile bei ' + r.target + ' Token Ziellänge' + (r.ovl ? ' und ' + r.ovl + ' % Überlappung' : ' ohne Überlappung') +
       '. Der Balken zeigt die Länge, die Zahl rechts die Note. Klick auf eine Zeile für die konkreten Verbesserungen.</p><div class="rows" id="rows">';
@@ -1313,7 +1368,7 @@
       var v = r.vector;
       var blind = v.rows.filter(function (x) { return x.blind; });
       var knapp = v.rows.filter(function (x) { return x.knapp; });
-      h += '<section><h2>Welche Frage findet welchen Abschnitt?</h2>' +
+      h += '<section id="sec-matrix"><h2>Welche Frage findet welchen Abschnitt?</h2>' +
         '<p class="read">Jede Zeile ist eine Frage, jede Spalte einer deiner Abschnitte. Je kräftiger das Blau, desto besser passt der Abschnitt zur Frage. Der umrandete Punkt ist der Abschnitt, den eine KI ausliefern würde. Eine fast leere Zeile heißt: Auf diese Frage hat dein Text keine Antwort.</p>' +
         '<p class="read"><b>Gemessen mit ' + (v.echt ? 'echten Embeddings' : 'Wortabgleich im Browser') + '.</b> Schwelle bei ' + Math.round(v.floor * 100) + ' — ' +
         (v.floorQuelle === "kontrolle"
@@ -1484,7 +1539,7 @@
     /* 3b — Konkrete Stellen */
     if (r.stellen && r.stellen.length) {
       var schwach = r.stellen.filter(function (s) { return s.guete !== "direkt"; }).length;
-      h += '<section><h2>Was eine KI aus deinem Text zitieren würde</h2>' +
+      h += '<section id="sec-zitate"><h2>Was eine KI aus deinem Text zitieren würde</h2>' +
         '<p class="read">Links die Frage, in der Mitte die Stelle aus deinem Text, die als Antwort ausgegeben würde — wörtlich, nicht umformuliert. Rechts ein fertiger Satz, den du übernehmen kannst. ' +
         (schwach ? schwach + ' von ' + r.stellen.length + ' Stellen beantworten die Frage nicht direkt.' : 'Alle Stellen beantworten ihre Frage direkt.') + '</p>' +
         '<div class="tbl"><div class="hd">Frage</div><div class="hd">Stelle in deinem Text</div><div class="hd">Vorschlag zum Übernehmen</div>';
@@ -1514,7 +1569,7 @@
     /* 4 — Fragenabdeckung */
     if (r.fragen && r.fragen.length) {
       var fehlt = r.fragen.filter(function (q) { return q.status === "fehlt"; }).length;
-      h += '<section><h2>Was Leute fragen — und ob du antwortest</h2>' +
+      h += '<section id="sec-fragen"><h2>Was Leute fragen — und ob du antwortest</h2>' +
         '<p class="read">Typische Fragen zum Thema. Voller Punkt heißt beantwortet, halbvoll heißt angerissen, blasser Punkt heißt gar nicht. Offen: ' + fehlt + ' von ' + r.fragen.length + '.</p>';
       r.fragen.forEach(function (q) {
         var a = q.status === "beantwortet" ? 1 : q.status === "teilweise" ? 0.45 : 0.12;
@@ -1525,7 +1580,7 @@
     }
 
     /* 5 — Wettbewerb */
-    h += '<section><h2>Wer beantwortet welche Anfrage besser?</h2>';
+    h += '<section id="sec-wettbewerb"><h2>Wer beantwortet welche Anfrage besser?</h2>';
     if (!r.cmp) {
       h += '<p class="read">Für diesen Vergleich fehlen Wettbewerbertexte. Füge links den Text von ein bis vier konkurrierenden Seiten ein und starte erneut. Verglichen wird dann Anfrage für Anfrage, nicht Thema gegen Thema.</p>';
     } else {
@@ -1594,7 +1649,7 @@
 
     var vl = SPEICHER_OK ? verlaufLesen().filter(function (x) { return x.schluessel === r.schluessel; }) : [];
     if (vl.length >= 1) {
-      h += '<section><h2>Verlauf</h2><p class="read">Frühere Läufe zu diesem Thema, neueste zuerst. Gespeichert werden nur Kennzahlen, nie deine Texte.</p>';
+      h += '<section id="sec-verlauf"><h2>Verlauf</h2><p class="read">Frühere Läufe zu diesem Thema, neueste zuerst. Gespeichert werden nur Kennzahlen, nie deine Texte.</p>';
       var maxG = Math.max.apply(null, vl.map(function (x) { return x.gesamt; })) || 1;
       vl.slice(0, 12).forEach(function (x, i) {
         h += '<div class="row" style="cursor:default"><span class="n">' + (i === 0 ? "neu" : pad(i + 1)) + '</span>' +
@@ -1613,7 +1668,7 @@
     if (r.kosten && r.kosten.aufrufe) {
       var k = r.kosten;
       var euro = k.summe * 0.92;
-      h += '<section><h2>Was dieser Durchlauf gekostet hat</h2>' +
+      h += '<section id="sec-kosten"><h2>Was dieser Durchlauf gekostet hat</h2>' +
         '<p class="read">' + k.aufrufe + ' Aufrufe · ' + k.ein.toLocaleString("de-DE") + ' Eingabe- und ' +
         k.aus.toLocaleString("de-DE") + ' Ausgabe-Tokens · <b>rund ' + k.summe.toFixed(3).replace(".", ",") +
         ' US-Dollar</b> (etwa ' + euro.toFixed(3).replace(".", ",") + ' Euro)' +
@@ -1627,7 +1682,15 @@
       });
       h += '</section>';
     }
-    h += '<button class="ghost" id="copy" type="button">Ergebnis als Text kopieren</button>';
+    h += '<div class="foot"><button class="ghost" id="copy" type="button">Ergebnis als Text kopieren</button>' +
+      '<button class="ghost" id="totop" type="button">Zu den Eingaben</button></div>';
+
+    var NAV = [["sec-ueberblick", "Überblick"], ["sec-ziel", "Zielsystem"], ["sec-abschnitte", "Abschnitte"],
+      ["sec-matrix", "Fragen ↔ Abschnitte"], ["sec-zitate", "Zitate & Vorschläge"], ["sec-fragen", "Fragenabdeckung"],
+      ["sec-wettbewerb", "Wettbewerb"], ["sec-kosten", "Kosten"], ["sec-verlauf", "Verlauf"]];
+    var navH = NAV.filter(function (x) { return h.indexOf('id="' + x[0] + '"') !== -1; })
+      .map(function (x) { return '<a href="#' + x[0] + '">' + x[1] + '</a>'; }).join("");
+    h = '<nav class="resnav">' + navH + '</nav>' + h;
 
     $("#out").innerHTML = h;
     $$("#rows .row[data-i]").forEach(function (b) {
@@ -1639,6 +1702,11 @@
       });
     });
     $("#copy").addEventListener("click", copyReport);
+    var tt = $("#totop");
+    if (tt) tt.addEventListener("click", function () {
+      if ($("#topic").scrollIntoView) $("#topic").scrollIntoView({ behavior: "smooth", block: "start" });
+      $("#topic").focus();
+    });
     var ve = $("#vexport");
     if (ve) ve.addEventListener("click", function () {
       var blob = new Blob([JSON.stringify(verlaufLesen(), null, 2)], { type: "application/json" });
@@ -1680,7 +1748,7 @@
     h += '<dl class="kv">' +
       '<dt>Länge</dt><dd>' + c.len.toLocaleString("de-DE") + ' Zeichen · etwa ' + toks(c.len).toLocaleString("de-DE") + ' Token' +
         (c.ovl ? ' · davon ' + c.ovl.toLocaleString("de-DE") + ' Zeichen aus dem vorigen Abschnitt übernommen' : '') + '</dd>' +
-      (c.streuung != null ? '<dt>Messgenauigkeit</dt><dd>±' + fx(c.streuung / 2) + ' aus drei Durchläufen</dd>' : '') +
+      (c.streuung != null ? '<dt>Bewertungsspanne</dt><dd>' + fx(c.streuung) + ' zwischen drei Durchläufen' + (c.streuung >= 1 ? ' — uneindeutige Stelle' : '') + '</dd>' : '') +
       '<dt>Steht für sich</dt><dd>' + fx(c.eigenstaendig) + '</dd>' +
       '<dt>Sagt etwas aus</dt><dd>' + fx(c.dichte) + '</dd>' +
       '<dt>Nennt Namen</dt><dd>' + fx(c.praezision) + '</dd>' +
@@ -1766,7 +1834,7 @@
     var d = document.createElement("div");
     d.className = "rival";
     d.innerHTML = '<div class="rival-top"><input class="in name" type="text" value="Wettbewerber ' + rc +
-      '"><button class="linky drop" type="button">Weg</button></div>' +
+      '"><button class="linky drop" type="button">Entfernen</button></div>' +
       '<textarea class="in small text" placeholder="Text der konkurrierenden Seite"></textarea>';
     d.querySelector(".drop").addEventListener("click", function () { d.remove(); });
     $("#rivals").appendChild(d);
@@ -1787,6 +1855,85 @@
   $("#ovl").addEventListener("change", updateMeta);
   $("#target").addEventListener("change", updateMeta);
   updateMeta();
+
+  /* ---------- Zustandsanzeigen in den Gruppenköpfen ---------- */
+  function updateSummaries() {
+    var st;
+    st = $("#st-gsc"); if (st) st.textContent = GSC.rows.length ? GSC.rows.length + " Anfragen geladen" : "leer";
+    st = $("#st-riv"); if (st) {
+      var n = $$("#rivals .rival").filter(function (b2) { return b2.querySelector(".text").value.trim().length > 200; }).length;
+      st.textContent = n ? n + (n === 1 ? " Text" : " Texte") : "keine";
+    }
+    st = $("#st-mess"); if (st) {
+      var t = [];
+      if (embAnbieter() !== "keine") t.push("Embeddings");
+      if ($("#mehrfach").checked) t.push("3× messen");
+      if ($("#ws").checked) t.push("Websuche");
+      st.textContent = t.length ? t.join(" · ") : "Standard";
+    }
+    st = $("#st-zer"); if (st) st.textContent = $("#size").value + " Token · " + $("#ovl").value + " % Überlappung";
+    st = $("#st-marke"); if (st) {
+      var g1 = tabuListe().length;
+      var g2 = $("#tests").value.split("\n").filter(function (x) { return x.trim().length > 5; }).length;
+      var t2 = [];
+      if (g1) t2.push(g1 + " gesperrt");
+      if (g2) t2.push(g2 + (g2 === 1 ? " Frage" : " Fragen"));
+      st.textContent = t2.length ? t2.join(" · ") : "leer";
+    }
+  }
+
+  /* ---------- Entwurf sichern (nur dieser Tab, nie die Schlüssel) ---------- */
+  var DKEY = "vectorizer.entwurf.v1";
+  function draftSave() {
+    try {
+      sessionStorage.setItem(DKEY, JSON.stringify({
+        topic: $("#topic").value, own: $("#own").value, tabu: $("#tabu").value,
+        gsc: $("#gsc").value.slice(0, 400000), brand: $("#brand").value, tests: $("#tests").value,
+        emb: $("#emb").value, target: $("#target").value, size: $("#size").value, ovl: $("#ovl").value,
+        mehrfach: $("#mehrfach").checked, ws: $("#ws").checked
+      }));
+    } catch (e) { }
+  }
+  function draftRestore() {
+    try {
+      var d = JSON.parse(sessionStorage.getItem(DKEY) || "null");
+      if (!d) return;
+      [["#topic", d.topic], ["#own", d.own], ["#tabu", d.tabu], ["#gsc", d.gsc], ["#brand", d.brand], ["#tests", d.tests],
+       ["#emb", d.emb], ["#target", d.target], ["#size", d.size], ["#ovl", d.ovl]].forEach(function (x) {
+        if (x[1] != null && $(x[0])) $(x[0]).value = x[1];
+      });
+      if ($("#mehrfach")) $("#mehrfach").checked = !!d.mehrfach;
+      if ($("#ws")) $("#ws").checked = !!d.ws;
+      if (d.emb && d.emb !== "keine") $("#emb").dispatchEvent(new Event("change"));
+      if (d.gsc) loadQueries(d.gsc);
+      updateMeta();
+    } catch (e) { }
+  }
+  var draftTimer = null;
+  var railEl = document.querySelector(".rail");
+  function railChanged() {
+    updateSummaries();
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(draftSave, 400);
+  }
+  railEl.addEventListener("input", railChanged);
+  railEl.addEventListener("change", railChanged);
+
+  /* ---------- Beispiel zum Ausprobieren ---------- */
+  var DEMO_TEXT = "Wärmepumpe im Altbau: Förderung, Kosten und Voraussetzungen\n\nDie Bundesförderung für effiziente Gebäude bezuschusst den Einbau einer Wärmepumpe im Altbau mit bis zu 70 Prozent der förderfähigen Investitionskosten. Die Grundförderung beträgt 30 Prozent für alle Antragsberechtigten.\n\nDer Einkommensbonus von 30 Prozent gilt für Haushalte mit einem zu versteuernden Jahreseinkommen unter 40.000 Euro. Als Nachweis dient der Steuerbescheid des vorletzten Jahres.\n\nDer Klimageschwindigkeitsbonus von 20 Prozent wird gezahlt, wenn eine funktionstüchtige Gasheizung ausgetauscht wird, die älter als 20 Jahre ist.\n\nAntrag und Fristen\n\nAnträge stellen Eigentümer über das Kundenportal der KfW. Voraussetzung ist eine Bestätigung zum Antrag durch einen eingetragenen Energie-Effizienz-Experten. Der Antrag muss vor Beginn der Maßnahme gestellt werden; als Beginn gilt der Abschluss des Liefervertrags.\n\nDie Auszahlung erfolgt nach Abschluss der Arbeiten und Einreichung der Rechnungen. Die Bearbeitung dauert in der Regel vier bis acht Wochen.\n\nKosten und Eignung\n\nEine Luft-Wasser-Wärmepumpe kostet inklusive Einbau zwischen 25.000 und 40.000 Euro. Erdwärmesonden liegen wegen der Bohrung um 10.000 bis 15.000 Euro höher.\n\nVor dem Einbau prüft der Fachbetrieb die Heizlast nach DIN EN 12831 und ob die vorhandenen Heizkörper bei niedriger Vorlauftemperatur ausreichen. Die Vorlauftemperatur sollte 55 Grad nicht überschreiten, sonst sinkt die Jahresarbeitszahl deutlich.\n\nWir stehen seit vielen Jahren für Qualität und Kundennähe und begleiten Sie partnerschaftlich auf dem Weg in eine nachhaltige Zukunft.";
+  var DEMO_GSC = "query\tclicks\timpressions\tctr\tposition\nwärmepumpe förderung altbau\t120\t3400\t3,5%\t3,4\nwärmepumpe förderung\t80\t2100\t3,8%\t4,1\nwärmepumpe kosten einbau\t20\t1900\t1,1%\t9,8\nwärmepumpe lautstärke nachbarn\t5\t600\t0,8%\t12,4\nwärmepumpe stromverbrauch jahr\t4\t800\t0,5%\t11,2\nwärmepumpe altbau sinnvoll\t15\t1200\t1,2%\t8,9";
+  $("#demo").addEventListener("click", function () {
+    $("#topic").value = "Wärmepumpe Förderung Altbau";
+    $("#own").value = DEMO_TEXT;
+    $("#gsc").value = DEMO_GSC;
+    loadQueries(DEMO_GSC);
+    $("#g-gsc").open = true;
+    updateMeta(); railChanged();
+    if ($("#own").scrollIntoView) $("#own").scrollIntoView({ block: "center" });
+  });
+
+  draftRestore();
+  updateSummaries();
   $("#mode").textContent = (PROXY_URL ? "Modus: eigener Proxy" : "Modus: ohne Einrichtung") + " · Fassung " + FASSUNG;
 
   /* ---------- Ablauf ---------- */
@@ -1802,7 +1949,7 @@
     try {
       var parts = chunkText(own, target, ovl), capped = false;
       if (parts.length > 30) { parts = parts.slice(0, 30); capped = true; }
-      say("Text zerlegt in " + parts.length + " Abschnitte" + (capped ? " (auf 30 begrenzt)" : "") + ". Prüfung läuft …");
+      say("Text zerlegt in " + parts.length + " Abschnitte" + (capped ? " (auf 30 begrenzt)" : "") + ". Prüfung läuft …", false, 0.04);
 
       kostenReset();
       var W = weights();
@@ -1830,11 +1977,11 @@
           eigenstaendig: e, dichte: d, praezision: p, score: e * W.e + d * W.d + p * W.p,
           streuung: wdh > 1 ? Math.max.apply(null, sA) - Math.min.apply(null, sA) : null
         });
-      }, function (n, t) { say("Abschnitt " + n + " von " + t + " geprüft …"); });
+      }, function (n, t) { say("Abschnitt " + n + " von " + t + " geprüft …", false, 0.05 + 0.5 * n / t); });
       chunks.forEach(function (c, i) { if (c.error) { c.len = parts[i].text.length; c.text = parts[i].text; c.kern = parts[i].kern; c.ovl = parts[i].ovl; } });
       if (chunks.every(function (c) { return c.error; })) throw new Error(chunks[0].error);
 
-      say("Prüfe, welche Fragen offen bleiben …");
+      say("Prüfe, welche Fragen offen bleiben …", false, 0.58);
       var fragen = [];
       try {
         // Die Kernaussagen liegen bereits vor — der Volltext muss nicht noch
@@ -1848,7 +1995,7 @@
         fragen = (await askJSON(P.questions(topic, uebersicht, $("#ws").checked), $("#ws").checked)).fragen || [];
       } catch (e) { }
 
-      say("Vergleiche Fragen mit den Abschnitten …");
+      say("Vergleiche Fragen mit den Abschnitten …", false, 0.62);
       var vector = null, QUERIES = [];
       try {
         var eigene = $("#tests").value.split("\n").map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 5; });
@@ -1876,7 +2023,7 @@
           var dense = null;
           if (embAnbieter() !== "keine" && embKey()) {
             try {
-              say("Erzeuge Vektoren über " + (embAnbieter() === "gemini" ? "Gemini" : "OpenAI") + " …");
+              say("Erzeuge Vektoren über " + (embAnbieter() === "gemini" ? "Gemini" : "OpenAI") + " …", false, 0.68);
               var lebende = chunks.filter(function (cc) { return !cc.error; });
               var dTexte = lebende.map(function (cc) { return cc.text; });
               var dv = await embedBatch(dTexte, "doc");
@@ -1928,7 +2075,7 @@
               pakete.push({ chunk: g.chunk, text: g.text, fragen: g.fragen.slice(i, i + 3) });
             }
           });
-          say("Suche die Stellen, die zitiert würden — " + pakete.length + " Aufrufe für " + basis.length + " Anfragen …");
+          say("Suche die Stellen, die zitiert würden — " + pakete.length + " Aufrufe für " + basis.length + " Anfragen …", false, 0.72);
           var tabuL = tabuListe(), tabuS = tabuStems();
           var norm = function (x) { return x.toLowerCase().replace(/[\s„“"»«]+/g, " ").replace(/[^\wäöüß ]/g, "").trim(); };
           var ergebnisse = await pool(pakete, 3, async function (pk) {
@@ -1949,14 +2096,14 @@
                 problem: a2.problem || "", vorschlag: a2.vorschlag || "", verstoss: verstoss
               };
             });
-          }, function (n, t) { say("Stellen: Paket " + n + " von " + t + " …"); });
+          }, function (n, t) { say("Stellen: Paket " + n + " von " + t + " …", false, 0.72 + 0.15 * n / t); });
           ergebnisse.forEach(function (g) { if (g && !g.error && g.length) stellen = stellen.concat(g); });
         }
       } catch (e) { }
 
       var cmp = null, rlist = [];
       if (rivals.length && QUERIES.length) {
-        say("Prüfe dieselben Anfragen gegen " + rivals.length + " Wettbewerbertext(e) …");
+        say("Prüfe dieselben Anfragen gegen " + rivals.length + " Wettbewerbertext(e) …", false, 0.88);
         cmp = await vergleich(chunks, rivals, QUERIES, target, ovl);
         if (cmp) {
           rlist = cmp.korpora.filter(function (k) { return !k.eigen; })
@@ -1965,7 +2112,7 @@
           var verloren = cmp.rows.filter(function (r) { return r.urteil === "verloren"; })
             .sort(function (a, b) { return b.abstand - a.abstand; }).slice(0, 5);
           if (verloren.length) {
-            say("Werte aus, was die Wettbewerber dort abdecken …");
+            say("Werte aus, was die Wettbewerber dort abdecken …", false, 0.94);
             var details = await pool(verloren, 3, async function (r) {
               var k = cmp.korpora.filter(function (x) { return x.name === r.sieger.name; })[0];
               var fremdTxt = k && k.parts[r.sieger.idx] ? k.parts[r.sieger.idx] : "";
@@ -2009,6 +2156,13 @@
           streuung: (function () {
             var m = RESULT.chunks.filter(function (c) { return c.streuung != null; });
             return m.length ? m.reduce(function (a, c) { return a + c.streuung; }, 0) / m.length : null;
+          })(),
+          unsicherheit: (function () {
+            var m = RESULT.chunks.filter(function (c) { return c.streuung != null; });
+            if (!m.length) return null;
+            var sd = m.map(function (c) { return c.streuung / 1.69; });
+            var u = Math.sqrt(sd.reduce(function (a, x) { return a + x * x; }, 0)) / sd.length;
+            return Math.max(0.1, 2 * u);
           })(),
           messart: RESULT.vector && RESULT.vector.echt ? "embeddings" : "wortabgleich",
           schwelle: RESULT.vector ? RESULT.vector.floorQuelle : null

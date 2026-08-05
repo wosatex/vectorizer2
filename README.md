@@ -86,11 +86,27 @@ Das ist ein anderer Mechanismus und wird oft damit verwechselt. Diese Assistente
 
 ---
 
+## Bedienung
+
+Zwei Angaben genügen: Thema und Text. Alles Optionale — Suchanfragen, Wettbewerber, Messung, Zerlegung, Markensprache — liegt in aufklappbaren Gruppen darunter. Jeder Gruppenkopf zeigt seinen Zustand an („6 Anfragen geladen", „2 Texte", „Embeddings · 3× messen"), sodass auf einen Blick sichtbar ist, was in den Lauf eingeht.
+
+**Beispiel laden** füllt Thema, Text und Suchanfragen mit einem Demodatensatz — zum Ausprobieren, bevor eigener Text da ist.
+
+**Eingaben überleben das Neuladen.** Text, Thema, Einstellungen und Suchanfragen werden im Tab gesichert und wiederhergestellt. Die beiden Schlüssel ausdrücklich nicht — die bleiben flüchtig. Mit dem Schließen des Tabs ist der Entwurf weg.
+
+Während der Prüfung zeigt ein Fortschrittsbalken, wo der Lauf steht. Die Ergebnisse beginnen mit einer Sprungnavigation zu allen Blöcken, der Überblick steht an erster Stelle; am Ende führt „Zu den Eingaben" zurück nach oben. In der Fußzeile steht die Fassung, damit sich nach einem Update in einer Sekunde prüfen lässt, welcher Stand läuft.
+
+---
+
 ## Wie belastbar sind die Zahlen?
 
 Die Bewertungen kommen von einem Sprachmodell und schwanken zwischen Durchläufen. Solange diese Schwankung ungemessen ist, weiß niemand, ob eine Veränderung im Verlauf etwas bedeutet.
 
-Der Schalter **„Genauer messen"** bewertet jeden Abschnitt dreimal und nimmt den Median. Das dämpft die Schwankung und macht sie zugleich sichtbar: Im Überblick steht dann „Messgenauigkeit: ±0,4 Punkte" samt der Folgerung — Unterschiede unterhalb dieser Spanne sind Rauschen, keine Verbesserung. Der Verlauf merkt sich den Wert und warnt beim nächsten Lauf, wenn die Veränderung darunter liegt.
+Der Schalter **„Genauer messen"** bewertet jeden Abschnitt dreimal und nimmt den Median. Daraus leitet das Tool zwei Dinge ab:
+
+**Die Unsicherheit der Gesamtnote.** Die Gesamtnote ist ein Mittelwert über alle Abschnitte — sind die Abweichungen der Einzelbewertungen unabhängig voneinander, mitteln sie sich weitgehend heraus, und die Gesamtnote ist deutlich präziser als jede Einzelbewertung. Das Tool weist beides aus: die Unsicherheit unter dieser Annahme und die Obergrenze, falls die Abweichungen gleichgerichtet wären. Ob die Annahme stimmt, klärt ein zweiter Lauf desselben unveränderten Textes — weichen die Gesamtnoten um weniger als die ausgewiesene Schwelle ab, passt sie. Der Verlauf merkt sich die Schwelle und warnt beim nächsten Lauf, wenn eine Veränderung darunter liegt: Das kann Rauschen sein.
+
+**Uneindeutig bewertete Abschnitte.** Geht die Bewertung eines Abschnitts über die drei Durchläufe um einen Punkt oder mehr auseinander, ist das kein Messfehler, sondern ein Befund: Die Stelle selbst ist uneindeutig, meist auf der Kippe zwischen Aussage und Floskel — auch zwei Menschen würden dort verschieden urteilen. Das Tool listet diese Abschnitte namentlich. Das ist eine Redaktionsaufgabe, die sonst niemand findet.
 
 Kostet dreimal so viel für die Abschnittsbewertung, aber die läuft auf dem kleinen Modell. Für einen einmaligen Check überflüssig, für alles, was in den Verlauf soll, unverzichtbar.
 

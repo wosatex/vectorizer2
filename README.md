@@ -86,6 +86,33 @@ Das ist ein anderer Mechanismus und wird oft damit verwechselt. Diese Assistente
 
 ---
 
+## Wie belastbar sind die Zahlen?
+
+Die Bewertungen kommen von einem Sprachmodell und schwanken zwischen Durchläufen. Solange diese Schwankung ungemessen ist, weiß niemand, ob eine Veränderung im Verlauf etwas bedeutet.
+
+Der Schalter **„Genauer messen"** bewertet jeden Abschnitt dreimal und nimmt den Median. Das dämpft die Schwankung und macht sie zugleich sichtbar: Im Überblick steht dann „Messgenauigkeit: ±0,4 Punkte" samt der Folgerung — Unterschiede unterhalb dieser Spanne sind Rauschen, keine Verbesserung. Der Verlauf merkt sich den Wert und warnt beim nächsten Lauf, wenn die Veränderung darunter liegt.
+
+Kostet dreimal so viel für die Abschnittsbewertung, aber die läuft auf dem kleinen Modell. Für einen einmaligen Check überflüssig, für alles, was in den Verlauf soll, unverzichtbar.
+
+## Warum eine Frage keine Antwort findet
+
+„Kein Anker" hat vier verschiedene Ursachen, und die Maßnahme ist jeweils eine andere. Das Tool unterscheidet sie anhand der Wertverteilung über alle Abschnitte:
+
+| Befund | Erkennungsmerkmal | Maßnahme |
+|---|---|---|
+| **Thema kommt nicht vor** | kein Abschnitt reagiert, Anfragebegriffe fehlen im Text | Neuen Absatz schreiben |
+| **Thema ist verstreut** | alle Abschnitte reagieren ähnlich schwach, keiner ragt heraus | Zusammenziehen, sodass eine Stelle die Frage vollständig beantwortet |
+| **Ein Absatz behandelt es, ist aber zu schwach** | ein Abschnitt ragt heraus, hat aber Note unter 5 | Dort konkret werden: Zahlen, Namen, Bedingungen |
+| **Knapp unter der Schwelle** | ein Abschnitt ragt heraus und ist solide | Meist genügt es, die Frage wörtlich aufzugreifen |
+
+## Nicht jede Anfrage wiegt gleich
+
+Die Noten zählen jeden Abschnitt gleich. Das verzerrt die Prioritäten: Zwei unbeantwortete Nischenfragen sind kein Drama, eine unbeantwortete Hauptanfrage schon.
+
+Liegen Search-Console-Daten vor, weist der Überblick deshalb zusätzlich die **abgedeckte Nachfrage** aus — den Anteil der Impressionen, die auf Anfragen mit Antwort entfallen — und nennt den größten offenen Posten. Die Liste der unbeantworteten Fragen ist nach Impressionen sortiert, ebenso die Chancen.
+
+---
+
 ## Welche Schlüssel brauche ich?
 
 Auf einer eigenen Adresse werden bis zu **zwei verschiedene Schlüssel** von **zwei verschiedenen Anbietern** gebraucht. Sie sind nicht austauschbar.

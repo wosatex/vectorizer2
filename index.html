@@ -304,6 +304,11 @@
     </div>
 
     <label class="check">
+      <input type="checkbox" id="mehrfach">
+      <span>Genauer messen: jeden Abschnitt dreimal bewerten und den Mittelwert nehmen. Zeigt zugleich, wie stark die Bewertung schwankt. Verdreifacht die Kosten der Abschnittsbewertung.</span>
+    </label>
+
+    <label class="check">
       <input type="checkbox" id="ws">
       <span>Testfragen zusätzlich per Websuche schärfen (dauert länger)</span>
     </label>
@@ -717,6 +722,22 @@
     }
     rows.forEach(function (r) {
       r.blind = r.best < floor;
+      if (r.blind) {
+        // "Kein Anker" hat verschiedene Ursachen mit verschiedenen Maßnahmen.
+        var med = median(r.row) || 0.0001;
+        var spreizung = r.best / med;          // ragt überhaupt ein Abschnitt heraus?
+        var fehlAnteil = (r.fehlend || []).length / Math.max(1, tok(r.frage).length);
+        var kand = chunks[r.bestChunk] || {};
+        if (r.best <= 0.0001 || fehlAnteil >= 0.6) {
+          r.grund = "fehlt";
+        } else if (spreizung < 1.25) {
+          r.grund = "verstreut";
+        } else if ((kand.score || 0) < 5) {
+          r.grund = "schwach";
+        } else {
+          r.grund = "knapp";
+        }
+      }
       r.knapp = !r.blind && r.best > 0 && r.margin < r.best * (echt ? 0.06 : 0.18);
       // Auseinanderlaufen der beiden Messungen ist selbst ein Befund.
       r.nurSemantisch = echt && !r.blind && r.fehlend && r.fehlend.length > 0;
@@ -1155,7 +1176,8 @@
   };
 
   /* ---------- Darstellung ---------- */
-  var fx = function (n) { return (Math.round(n * 10) / 10).toFixed(1); };
+  // Deutsches Dezimalkomma. Nur für die Anzeige — nie in CSS-Werten verwenden.
+  var fx = function (n) { return (Math.round(n * 10) / 10).toFixed(1).replace(".", ","); };
   var pad = function (n) { return n < 10 ? "0" + n : String(n); };
   var alpha = function (x) { return "rgba(var(--b), " + Math.max(0, Math.min(1, x)).toFixed(3) + ")"; };
   function say(msg, err) {
@@ -1211,6 +1233,36 @@
       score(dic, "Sagt etwas aus", "Enthält er Fakten statt Werbefloskeln?") +
       score(pra, "Nennt Namen", "Stehen Zahlen, Orte und Begriffe wirklich da?") +
       '</div><div class="verdict"><b>Kurz gesagt:</b> ' + urteil + '</div>';
+    if (r.vector) {
+      var mitImpr = r.vector.rows.filter(function (x) { return x.impr > 0; });
+      if (mitImpr.length >= 2) {
+        var gesImpr = mitImpr.reduce(function (a, x) { return a + x.impr; }, 0);
+        var okImpr = mitImpr.filter(function (x) { return !x.blind; }).reduce(function (a, x) { return a + x.impr; }, 0);
+        var quote = gesImpr ? okImpr / gesImpr : 0;
+        var offen = mitImpr.filter(function (x) { return x.blind; }).sort(function (a, b) { return b.impr - a.impr; });
+        h += '<div class="note" style="margin-top:18px;border-left-color:' + alpha(quote > 0.8 ? 0.35 : 1) + '">' +
+          '<b>Abgedeckte Nachfrage: ' + Math.round(quote * 100) + ' %</b>' +
+          '<p>Nicht jede Anfrage wiegt gleich. Von ' + gesImpr.toLocaleString("de-DE") +
+          ' Impressionen aus der Search Console entfallen ' + Math.round(quote * 100) +
+          ' % auf Anfragen, für die dein Text eine Stelle hat.' +
+          (offen.length ? ' Der größte offene Posten: <b>' + esc(offen[0].frage) + '</b> mit ' +
+            offen[0].impr.toLocaleString("de-DE") + ' Impressionen.' : '') +
+          ' Die Noten oben zählen dagegen jeden Abschnitt gleich — diese Zahl sagt, wo tatsächlich Nachfrage liegt.</p></div>';
+      }
+    }
+    var mitStreu = ok.filter(function (c) { return c.streuung != null; });
+    if (mitStreu.length) {
+      var sMit = mitStreu.reduce(function (a, c) { return a + c.streuung; }, 0) / mitStreu.length;
+      var sMax = Math.max.apply(null, mitStreu.map(function (c) { return c.streuung; }));
+      h += '<div class="note" style="margin-top:18px;border-left-color:' + alpha(sMit > 1 ? 1 : 0.35) + '">' +
+        '<b>Messgenauigkeit: ±' + fx(sMit / 2) + ' Punkte</b><p>Jeder Abschnitt wurde dreimal bewertet; angezeigt wird der Mittelwert. Die Bewertungen wichen im Schnitt um ' +
+        fx(sMit) + ' Punkte voneinander ab, im Extremfall um ' + fx(sMax) + '. ' +
+        (sMit > 1
+          ? '<b>Das ist viel.</b> Unterschiede unter ' + fx(sMit) + ' Punkten im Verlauf sind Rauschen, keine Verbesserung.'
+          : 'Veränderungen im Verlauf sind ab etwa ' + fx(sMit) + ' Punkten belastbar.') + '</p></div>';
+    } else {
+      h += '<p class="read" style="margin-top:16px">Einfachmessung. Wie stark die Bewertung schwankt, ist damit unbekannt — für Vergleiche im Verlauf lohnt sich die Mehrfachmessung.</p>';
+    }
     if (r.vorher) {
       var delta = tot - r.vorher.gesamt;
       var richtung = Math.abs(delta) < 0.15 ? "unverändert gegenüber" : (delta > 0 ? "besser als" : "schlechter als");
@@ -1218,7 +1270,10 @@
         (delta > 0 ? "+" : "") + fx(delta) + ' Punkte ' + esc(richtung) + ' dem Lauf vom ' + esc(datumKurz(r.vorher.datum)) + '</b>' +
         '<p>Damals ' + fx(r.vorher.gesamt) + ' bei ' + r.vorher.abschnitte + ' Abschnitten' +
         (r.vorher.blind != null ? ' und ' + r.vorher.blind + ' unbeantworteten Anfragen' : '') +
-        '. Vergleichbar ist das nur bei gleicher Zerlegung und gleicher Messart (' + esc(r.vorher.messart) + ').</p></div>';
+        '. Vergleichbar ist das nur bei gleicher Zerlegung und gleicher Messart (' + esc(r.vorher.messart) + ').' +
+        (r.vorher.streuung != null && Math.abs(delta) < r.vorher.streuung
+          ? ' <b>Achtung:</b> Der Unterschied liegt unter der damals gemessenen Schwankungsbreite von ' + fx(r.vorher.streuung) + ' Punkten — das kann Rauschen sein.'
+          : '') + '</p></div>';
     }
     h += '</section>';
 
@@ -1267,8 +1322,8 @@
         v.cols.length + ', 22px)">' +
         '<div></div>' + v.cols.map(function (c) { return '<div class="mn">' + pad(c + 1) + '</div>'; }).join("");
       v.rows.forEach(function (row) {
-        var q = row.quelle === "chance" ? '<span class="src chance">Chance · Pos ' + fx(row.pos) + '</span>'
-          : row.quelle === "kontrolle" ? '<span class="src kontrolle">Kontrolle · Pos ' + fx(row.pos) + '</span>'
+        var q = row.quelle === "chance" ? '<span class="src chance">Chance · Pos ' + fx(row.pos) + ' · ' + (row.impr || 0).toLocaleString("de-DE") + ' Impr</span>'
+          : row.quelle === "kontrolle" ? '<span class="src kontrolle">Kontrolle · Pos ' + fx(row.pos) + ' · ' + (row.impr || 0).toLocaleString("de-DE") + ' Impr</span>'
             : row.quelle === "eigen" ? '<span class="src llm">eigene Frage</span>'
               : '<span class="src llm">erzeugt</span>';
         h += '<div class="mq"><span class="qt">' + esc(row.frage) + '</span>' + q +
@@ -1296,9 +1351,24 @@
         }).join("") + '</div>';
 
       if (blind.length) {
-        h += '<h3 class="sub">Fragen ohne Antwort</h3><p class="read">Für diese Fragen gibt es in deinem Text keinen Absatz, den eine KI zitieren könnte. Das sind die Lücken, die du zuerst füllen solltest.</p>';
-        blind.forEach(function (x) {
-          h += '<div class="note"><b>' + esc(x.frage) + '</b><p>Kein Abschnitt kommt nah genug heran. Schreib einen eigenen Absatz, der genau diese Frage direkt beantwortet.</p></div>';
+        h += '<h3 class="sub">Fragen ohne Antwort</h3><p class="read">Für diese Fragen gibt es keinen Absatz, den eine KI zitieren könnte. Die Ursache ist nicht immer dieselbe — und die Maßnahme deshalb auch nicht. Wo Impressionen vorliegen, steht die stärkste Anfrage oben.</p>';
+        var GRUND = {
+          fehlt: { t: "Thema kommt im Text nicht vor",
+            m: "Hier hilft kein Umformulieren. Es braucht einen neuen Absatz, der genau diese Frage beantwortet." },
+          verstreut: { t: "Thema ist über mehrere Absätze verstreut",
+            m: "Der Inhalt ist da, aber kein Absatz trägt ihn allein. Zusammenziehen, sodass eine Stelle die Frage vollständig beantwortet." },
+          schwach: { t: "Ein Absatz behandelt es, ist aber zu schwach",
+            m: "Abschnitt {n} kommt am nächsten, hat aber nur Note {s}. Dort konkret werden: Zahlen, Namen, Bedingungen statt Allgemeinplätze." },
+          knapp: { t: "Knapp unter der Schwelle",
+            m: "Abschnitt {n} liegt nah dran. Meist genügt es, die Frage im Text wörtlich aufzugreifen." }
+        };
+        blind.slice().sort(function (a, b) { return (b.impr || 0) - (a.impr || 0); }).forEach(function (x) {
+          var g = GRUND[x.grund] || GRUND.fehlt;
+          var kand = r.chunks[x.bestChunk] || {};
+          var m = g.m.replace("{n}", pad(x.bestChunk + 1)).replace("{s}", fx(kand.score || 0));
+          h += '<div class="note"><b>' + esc(x.frage) +
+            (x.impr ? ' <span style="font-weight:400;color:var(--muted)">· ' + x.impr.toLocaleString("de-DE") + ' Impressionen</span>' : '') +
+            '</b><p><b>' + esc(g.t) + '.</b> ' + m + '</p></div>';
         });
       }
       if (knapp.length) {
@@ -1313,7 +1383,10 @@
       if (chancen.length) {
         h += '<h3 class="sub">Wo Google dich schon sieht, du aber nicht gewinnst</h3>' +
           '<p class="read">Diese Anfragen bringen dir Impressionen auf Position 8 bis 30. Google hält deine Seite für relevant, liefert sie aber nicht vorne aus. Fehlt hier eine zitierfähige Stelle, liegt der Hebel offen.</p>';
-        chancen.sort(function (a, b) { return a.best - b.best; }).forEach(function (x) {
+        chancen.sort(function (a, b) {
+          // Impressionen zuerst: eine schwache Nischenanfrage ist kein Drama.
+          return (b.blind ? b.impr : b.impr * 0.4) - (a.blind ? a.impr : a.impr * 0.4);
+        }).forEach(function (x) {
           h += '<div class="note" style="border-left-color:' + alpha(x.blind ? 1 : 0.3) + '"><b>' + esc(x.frage) +
             '</b><p>Position ' + fx(x.pos) + ' · ' + (x.impr || 0).toLocaleString("de-DE") + ' Impressionen · ' +
             (x.blind ? 'kein Abschnitt deckt das ab — hier fehlt Text' : 'stärkster Abschnitt ist ' + pad(x.bestChunk + 1)) + '</p></div>';
@@ -1596,6 +1669,7 @@
     h += '<dl class="kv">' +
       '<dt>Länge</dt><dd>' + c.len.toLocaleString("de-DE") + ' Zeichen · etwa ' + toks(c.len).toLocaleString("de-DE") + ' Token' +
         (c.ovl ? ' · davon ' + c.ovl.toLocaleString("de-DE") + ' Zeichen aus dem vorigen Abschnitt übernommen' : '') + '</dd>' +
+      (c.streuung != null ? '<dt>Messgenauigkeit</dt><dd>±' + fx(c.streuung / 2) + ' aus drei Durchläufen</dd>' : '') +
       '<dt>Steht für sich</dt><dd>' + fx(c.eigenstaendig) + '</dd>' +
       '<dt>Sagt etwas aus</dt><dd>' + fx(c.dichte) + '</dd>' +
       '<dt>Nennt Namen</dt><dd>' + fx(c.praezision) + '</dd>' +
@@ -1722,12 +1796,29 @@
       kostenReset();
       var W = weights();
       var mitEmb = embAnbieter() !== "keine" && !!embKey();
+      // Mehrfachmessung: Der Median dreier Durchläufe dämpft die Streuung des
+      // Sprachmodells und macht sie zugleich sichtbar. Ohne diese Zahl weiß
+      // niemand, ob eine Veränderung im Verlauf etwas bedeutet.
+      var wdh = $("#mehrfach").checked ? 3 : 1;
+      var mitte = function (a) {
+        var x = a.slice().sort(function (p1, q1) { return p1 - q1; });
+        return x.length % 2 ? x[(x.length - 1) / 2] : (x[x.length / 2 - 1] + x[x.length / 2]) / 2;
+      };
       var chunks = await pool(parts, 4, async function (part) {
-        // Kleines Modell: die Bewertung folgt einem festen Schema.
-        var j = await askJSON(P.chunk(topic, part.text, mitEmb), false, "schnell");
-        var e = +j.eigenstaendig || 0, d = +j.dichte || 0, p = +j.praezision || 0;
-        return Object.assign(j, { text: part.text, kern: part.kern, ovl: part.ovl, len: part.text.length,
-          eigenstaendig: e, dichte: d, praezision: p, score: e * W.e + d * W.d + p * W.p });
+        var laeufe = [];
+        for (var w = 0; w < wdh; w++) {
+          laeufe.push(await askJSON(P.chunk(topic, part.text, mitEmb), false, "schnell"));
+        }
+        var hole = function (f) { return laeufe.map(function (x) { return +x[f] || 0; }); };
+        var eA = hole("eigenstaendig"), dA = hole("dichte"), pA = hole("praezision");
+        var e = mitte(eA), d = mitte(dA), p = mitte(pA);
+        var sA = eA.map(function (_, i) { return eA[i] * W.e + dA[i] * W.d + pA[i] * W.p; });
+        var j = laeufe[Math.floor(laeufe.length / 2)];
+        return Object.assign(j, {
+          text: part.text, kern: part.kern, ovl: part.ovl, len: part.text.length,
+          eigenstaendig: e, dichte: d, praezision: p, score: e * W.e + d * W.d + p * W.p,
+          streuung: wdh > 1 ? Math.max.apply(null, sA) - Math.min.apply(null, sA) : null
+        });
       }, function (n, t) { say("Abschnitt " + n + " von " + t + " geprüft …"); });
       chunks.forEach(function (c, i) { if (c.error) { c.len = parts[i].text.length; c.text = parts[i].text; c.kern = parts[i].kern; c.ovl = parts[i].ovl; } });
       if (chunks.every(function (c) { return c.error; })) throw new Error(chunks[0].error);
@@ -1896,6 +1987,18 @@
           blind: RESULT.vector ? RESULT.vector.rows.filter(function (x) { return x.blind; }).length : null,
           fragen: RESULT.vector ? RESULT.vector.rows.length : 0,
           kosten: kosten.summe,
+          nachfrage: (function () {
+            if (!RESULT.vector) return null;
+            var mi = RESULT.vector.rows.filter(function (x) { return x.impr > 0; });
+            if (mi.length < 2) return null;
+            var g = mi.reduce(function (a, x) { return a + x.impr; }, 0);
+            var o = mi.filter(function (x) { return !x.blind; }).reduce(function (a, x) { return a + x.impr; }, 0);
+            return g ? o / g : null;
+          })(),
+          streuung: (function () {
+            var m = RESULT.chunks.filter(function (c) { return c.streuung != null; });
+            return m.length ? m.reduce(function (a, c) { return a + c.streuung; }, 0) / m.length : null;
+          })(),
           messart: RESULT.vector && RESULT.vector.echt ? "embeddings" : "wortabgleich",
           schwelle: RESULT.vector ? RESULT.vector.floorQuelle : null
         });

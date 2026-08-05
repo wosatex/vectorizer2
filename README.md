@@ -52,6 +52,14 @@ Trag solche Begriffe kommagetrennt in das Feld **Markensprache** ein. Drei Dinge
 
 Komposita werden mitgefangen: `clubhotel` und `hotelanlage` gelten als „Hotel", `clubanlage` bleibt frei.
 
+### Vorschläge, die ein Texter übernehmen kann
+
+Für die Vorschlagsspalte gelten drei Regeln, alle nachgeprüft statt nur erbeten:
+
+- **Fragen ohne Antwort im Text** bekommen bewusst keinen Abschnitt in den Prompt — der „beste" Treffer ist dort bedeutungslos und verführt das Modell dazu, die Lücke zu kommentieren („dieser Abschnitt enthält keine Informationen") statt den fehlenden Satz zu schreiben. Stattdessen wird der Satz angefordert, der neu in den Text soll.
+- **Meta-Sätze werden erkannt und repariert.** Jeder Vorschlag läuft durch eine Prüfung auf Formulierungen über den Text statt für ihn. Schlägt sie an, wird einmal mit dem großen Modell neu formuliert; scheitert auch das, steht dort ehrlich „Kein brauchbarer Vorschlag" statt unbrauchbarer Fülltext mit Kopierknopf.
+- **Direkte Treffer ohne Schwäche bekommen keinen Vorschlag** — eine Paraphrase der bereits guten Stelle lädt nur zu sinnlosen Umformulierungen ein. Dort steht „Die Stelle trägt — kein Änderungsbedarf".
+
 Ein Nebenbefund aus der Praxis: Die ROBINSON-Spanienseite steht für `club hotels spanien` auf Position 4,3, obwohl das Wort nirgends vorkommt. Der Verzicht kostet dort nichts — Google schlägt die Brücke selbst. Wenn du den Begriff trotzdem bedienen willst, gehört er in eine Frage, die den Unterschied erklärt, nicht in die Selbstbeschreibung.
 
 ---

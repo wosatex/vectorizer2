@@ -180,7 +180,7 @@
   .quote.none { border-left-style: dotted; font-style: normal; color: var(--muted); }
   .quote small { display: block; font-style: normal; font-size: 12px; color: var(--muted); margin-top: 5px; }
   .sugg { background: rgba(var(--b), .05); border-radius: 8px; padding: 11px 13px; }
-  .sugg .cp { margin-top: 9px; background: none; border: 0; padding: 0; color: rgba(var(--b), 1); font-size: 12.5px; cursor: pointer; }
+  .sugg .cp { display: block; margin-top: 9px; background: none; border: 0; padding: 0; color: rgba(var(--b), 1); font-size: 12.5px; cursor: pointer; }
   .sugg .cp:hover { text-decoration: underline; }
   @media (max-width: 820px) {
     .tbl { grid-template-columns: 1fr; }
@@ -379,7 +379,7 @@
      betreibst — dann laufen ALLE Aufrufe über DEIN Budget. Siehe README.
      ======================================================================= */
   var PROXY_URL = "";
-  var FASSUNG = "2026-08-05-b";   // muss mit VERSION in sw.js übereinstimmen
+  var FASSUNG = "2026-08-05-c";   // muss mit VERSION in sw.js übereinstimmen
   // Zwei Modelle statt einem: Die Abschnittsbewertung ist eine mechanische,
   // eng vorgegebene Aufgabe — dafür reicht das kleine Modell zu einem Drittel
   // des Preises. Formuliert wird weiter mit dem großen.
@@ -1192,8 +1192,24 @@
         '1. stelle: Zitiere WOERTLICH den Satz oder die zwei Saetze aus dem Abschnitt, die ein KI-Assistent als Antwort ausgeben wuerde. Exakt uebernehmen, nichts umformulieren, keine Auslassungszeichen. Beantwortet der Abschnitt die Frage nicht: leerer String.\n' +
         '2. guete: "direkt" | "indirekt" | "keine".\n' +
         '3. problem: max 12 Woerter, warum die Stelle als Antwort schwach ist. Leer, wenn stark.\n' +
-        '4. vorschlag: EIN fertiger deutscher Satz (hoechstens zwei), der die Frage direkt beantwortet und ohne Umgebung verstaendlich ist. Subjekt beim Namen nennen statt "wir". Keine Zahlen erfinden - [eckige Platzhalter] nutzen.\n\n' +
+        '4. vorschlag: NUR wenn guete nicht "direkt" ist oder ein problem vorliegt, sonst leerer String. EIN fertiger deutscher Satz (hoechstens zwei), der die Frage direkt beantwortet und unveraendert in den Webtext eingefuegt werden kann. STRIKT VERBOTEN sind Saetze UEBER den Text ("dieser Abschnitt", "der Text", "enthaelt keine Informationen") - du kommentierst nicht, du lieferst die Antwort. Subjekt beim Namen nennen statt "wir". Keine Zahlen erfinden - [eckige Platzhalter] nutzen.\n\n' +
         'Antworte NUR mit JSON:\n{"antworten":[{"i":1,"stelle":"","guete":"direkt|indirekt|keine","problem":"","vorschlag":""}]}';
+    },
+
+    entwurf: function (topic, fragen, tabu) {
+      return 'Thema: "' + (topic || "unbekannt") + '"\n\n' +
+        (tabu && tabu.length
+          ? 'MARKENSPRACHE - diese Begriffe sind verboten und duerfen in keinem Satz vorkommen, auch nicht in Zusammensetzungen oder Beugungen: ' + tabu.join(", ") +
+          '. Enthaelt eine Frage einen dieser Begriffe, antworte mit der eigenen Bezeichnung des Anbieters.\n\n'
+          : '') +
+        'Ein Webtext zu diesem Thema beantwortet die folgenden Fragen bisher nicht. Formuliere fuer JEDE Frage den Satz, der NEU in den Text geschrieben werden soll.\n\n' +
+        'Regeln:\n' +
+        '- Schreibe den Satz so, wie er auf der Webseite stehen wird: als Aussage an die Leserin.\n' +
+        '- STRIKT VERBOTEN sind Saetze UEBER den Text ("dieser Abschnitt", "der Text", "enthaelt keine Informationen", "macht dazu keine Aussage"). Du kommentierst nicht, du lieferst die Antwort.\n' +
+        '- Keine Fakten erfinden: Wo eine Zahl oder ein anbieterspezifischer Fakt fehlt, einen [eckigen Platzhalter] einsetzen. Der Satz drumherum muss vollstaendig und uebernehmbar sein.\n' +
+        '- Hoechstens zwei Saetze je Frage. Subjekt beim Namen nennen statt "wir".\n\n' +
+        'FRAGEN:\n' + fragen.map(function (f, i) { return (i + 1) + ". " + f; }).join("\n") + '\n\n' +
+        'Antworte NUR mit JSON:\n{"antworten":[{"i":1,"vorschlag":""}]}';
     },
 
     fremd: function (frage, name, abschnitt, eigenTxt) {
@@ -1555,13 +1571,22 @@
         } else {
           h += '<div><div class="quote none">Keine Stelle vorhanden. Eine KI müsste diese Frage mit deinem Text unbeantwortet lassen — oder sie beim Wettbewerb holen.</div></div>';
         }
-        h += '<div><div class="sugg">' + esc(s.vorschlag || "—") +
-          (s.verstoss && s.verstoss.length
-            ? '<small style="display:block;margin-top:7px;color:var(--muted)">Achtung: enthält ' +
-            s.verstoss.map(function (t) { return '„' + esc(t) + '“'; }).join(", ") +
-            ' aus deiner Markensprache. Vor der Übernahme ersetzen.</small>' : '') +
-          (s.vorschlag ? '<button class="cp" type="button" data-s="' + i + '">Satz kopieren</button>' : '') +
-          '</div></div>';
+        var inhalt;
+        if (s.vorschlag) {
+          inhalt = esc(s.vorschlag) +
+            (s.verstoss && s.verstoss.length
+              ? '<small style="display:block;margin-top:7px;color:var(--muted)">Achtung: enthält ' +
+              s.verstoss.map(function (t) { return '„' + esc(t) + '“'; }).join(", ") +
+              ' aus deiner Markensprache. Vor der Übernahme ersetzen.</small>' : '') +
+            '<button class="cp" type="button" data-s="' + i + '">Satz kopieren</button>';
+        } else if (s.unbrauchbar) {
+          inhalt = '<span style="color:var(--muted)">Kein brauchbarer Vorschlag: Das Modell wollte auch im zweiten Anlauf über den Text schreiben statt für ihn. Hier selbst formulieren — die Frage links sagt, was der neue Satz beantworten muss.</span>';
+        } else if (s.guete === "direkt" && !s.problem) {
+          inhalt = '<span style="color:var(--muted)">Die Stelle trägt — kein Änderungsbedarf.</span>';
+        } else {
+          inhalt = "—";
+        }
+        h += '<div><div class="sugg">' + inhalt + '</div></div>';
       });
       h += '</div><p class="read" style="margin-top:14px">Eckige Klammern sind Platzhalter für Zahlen und Fristen, die nur du kennst — die werden bewusst nicht erfunden.</p></section>';
     }
@@ -2062,42 +2087,95 @@
           basis = fragen.slice(0, 10).map(function (q) { return { frage: q.frage, chunk: null, text: own.slice(0, 2500), blind: q.status === "fehlt" }; });
         }
         if (basis.length) {
-          var gruppen = {};
-          basis.forEach(function (b2) {
-            var k = String(b2.chunk);
-            (gruppen[k] = gruppen[k] || { chunk: b2.chunk, text: b2.text, fragen: [] }).fragen.push(b2);
-          });
-          // Nie mehr als drei Fragen je Aufruf: sonst reicht die Ausgabegrenze nicht.
-          var pakete = [];
-          Object.keys(gruppen).forEach(function (k) {
-            var g = gruppen[k];
-            for (var i = 0; i < g.fragen.length; i += 3) {
-              pakete.push({ chunk: g.chunk, text: g.text, fragen: g.fragen.slice(i, i + 3) });
-            }
-          });
-          say("Suche die Stellen, die zitiert würden — " + pakete.length + " Aufrufe für " + basis.length + " Anfragen …", false, 0.72);
           var tabuL = tabuListe(), tabuS = tabuStems();
-          var norm = function (x) { return x.toLowerCase().replace(/[\s„“"»«]+/g, " ").replace(/[^\wäöüß ]/g, "").trim(); };
-          var ergebnisse = await pool(pakete, 3, async function (pk) {
-            var j = await askJSON(P.stellen(topic, pk.fragen.map(function (f) { return f.frage; }), pk.text, tabuL));
-            var ant = j.antworten || [];
-            return pk.fragen.map(function (f, idx) {
-              var a2 = ant.filter(function (x) { return +x.i === idx + 1; })[0] || ant[idx] || {};
-              var zitat = String(a2.stelle || "").trim();
-              var verstoss = [];
-              tok(a2.vorschlag || "").forEach(function (t) {
-                var hit = tabuTreffer(t, tabuS);
-                if (hit && verstoss.indexOf(hit) === -1) verstoss.push(hit);
-              });
-              return {
-                frage: f.frage, chunk: pk.chunk, blind: f.blind,
-                stelle: zitat, woertlich: zitat.length > 0 && norm(pk.text).indexOf(norm(zitat)) !== -1,
-                guete: a2.guete || (zitat ? "indirekt" : "keine"),
-                problem: a2.problem || "", vorschlag: a2.vorschlag || "", verstoss: verstoss
-              };
+          var tabuCheck = function (txt) {
+            var v = [];
+            tok(txt || "").forEach(function (t) {
+              var hit = tabuTreffer(t, tabuS);
+              if (hit && v.indexOf(hit) === -1) v.push(hit);
             });
-          }, function (n, t) { say("Stellen: Paket " + n + " von " + t + " …", false, 0.72 + 0.15 * n / t); });
-          ergebnisse.forEach(function (g) { if (g && !g.error && g.length) stellen = stellen.concat(g); });
+            return v;
+          };
+          // Sätze ÜBER den Text ("dieser Abschnitt enthält keine Informationen")
+          // sind für Texter unbrauchbar. Sie werden erkannt und repariert —
+          // dem Verbot im Prompt allein wird nicht vertraut.
+          var META = /\b(dieser|diese|dieses|der|das|im|dem)\s+(abschnitt|text|seite)\b|abschnitt\s+\d|keine informationen|keine aussage|nicht (genannt|erwähnt|erwaehnt|behandelt|enthalten|beantwortet)|liegt nicht vor|enthält\s+(hierzu\s+|dazu\s+)?keine|enthaelt\s+(hierzu\s+|dazu\s+)?keine|geht nicht (darauf )?ein/i;
+          var norm = function (x) { return x.toLowerCase().replace(/[\s„“"»«]+/g, " ").replace(/[^\wäöüß ]/g, "").trim(); };
+
+          var mitAnker = basis.filter(function (b2) { return !b2.blind; });
+          var ohneAnker = basis.filter(function (b2) { return b2.blind; });
+
+          // Fragen MIT Anker: Zitat suchen, gebündelt nach Abschnitt.
+          if (mitAnker.length) {
+            var gruppen = {};
+            mitAnker.forEach(function (b2) {
+              var k = String(b2.chunk);
+              (gruppen[k] = gruppen[k] || { chunk: b2.chunk, text: b2.text, fragen: [] }).fragen.push(b2);
+            });
+            // Nie mehr als drei Fragen je Aufruf: sonst reicht die Ausgabegrenze nicht.
+            var pakete = [];
+            Object.keys(gruppen).forEach(function (k) {
+              var g = gruppen[k];
+              for (var i = 0; i < g.fragen.length; i += 3) {
+                pakete.push({ chunk: g.chunk, text: g.text, fragen: g.fragen.slice(i, i + 3) });
+              }
+            });
+            say("Suche die Stellen, die zitiert würden — " + pakete.length + " Aufrufe für " + mitAnker.length + " Anfragen …", false, 0.72);
+            var ergebnisse = await pool(pakete, 3, async function (pk) {
+              var j = await askJSON(P.stellen(topic, pk.fragen.map(function (f) { return f.frage; }), pk.text, tabuL));
+              var ant = j.antworten || [];
+              return pk.fragen.map(function (f, idx) {
+                var a2 = ant.filter(function (x) { return +x.i === idx + 1; })[0] || ant[idx] || {};
+                var zitat = String(a2.stelle || "").trim();
+                return {
+                  frage: f.frage, chunk: pk.chunk, blind: f.blind,
+                  stelle: zitat, woertlich: zitat.length > 0 && norm(pk.text).indexOf(norm(zitat)) !== -1,
+                  guete: a2.guete || (zitat ? "indirekt" : "keine"),
+                  problem: a2.problem || "", vorschlag: String(a2.vorschlag || "").trim(), verstoss: tabuCheck(a2.vorschlag)
+                };
+              });
+            }, function (n, t) { say("Stellen: Paket " + n + " von " + t + " …", false, 0.72 + 0.1 * n / t); });
+            ergebnisse.forEach(function (g) { if (g && !g.error && g.length) stellen = stellen.concat(g); });
+          }
+
+          // Fragen OHNE Anker: bewusst KEIN Abschnitt im Prompt. Der "beste"
+          // Abschnitt ist hier bedeutungslos und verführt das Modell dazu,
+          // die Lücke zu kommentieren statt den fehlenden Satz zu schreiben.
+          if (ohneAnker.length) {
+            var ePakete = [];
+            for (var ei = 0; ei < ohneAnker.length; ei += 4) ePakete.push(ohneAnker.slice(ei, ei + 4));
+            say("Formuliere Entwürfe für " + ohneAnker.length + " offene Fragen …", false, 0.84);
+            var eErg = await pool(ePakete, 3, async function (pk) {
+              var j = await askJSON(P.entwurf(topic, pk.map(function (f) { return f.frage; }), tabuL));
+              var ant = j.antworten || [];
+              return pk.map(function (f, idx) {
+                var a2 = ant.filter(function (x) { return +x.i === idx + 1; })[0] || ant[idx] || {};
+                return {
+                  frage: f.frage, chunk: f.chunk, blind: true, stelle: "", woertlich: false,
+                  guete: "keine", problem: "", vorschlag: String(a2.vorschlag || "").trim(), verstoss: tabuCheck(a2.vorschlag)
+                };
+              });
+            });
+            eErg.forEach(function (g) { if (g && !g.error && g.length) stellen = stellen.concat(g); });
+          }
+
+          // Nachprüfen statt vertrauen: Meta-Sätze einmal mit dem großen
+          // Modell reparieren; bleibt es dabei, ehrlich als unbrauchbar zeigen.
+          var kaputt = stellen.filter(function (x) { return x.vorschlag && META.test(x.vorschlag); });
+          if (kaputt.length) {
+            try {
+              var j2 = await askJSON(P.entwurf(topic, kaputt.map(function (x) { return x.frage; }), tabuL), false, "stark");
+              var ant2 = j2.antworten || [];
+              kaputt.forEach(function (x, idx) {
+                var a3 = ant2.filter(function (y) { return +y.i === idx + 1; })[0] || ant2[idx] || {};
+                var neu2 = String(a3.vorschlag || "").trim();
+                if (neu2 && !META.test(neu2)) { x.vorschlag = neu2; x.verstoss = tabuCheck(neu2); }
+                else { x.vorschlag = ""; x.unbrauchbar = true; }
+              });
+            } catch (e2) {
+              kaputt.forEach(function (x) { x.vorschlag = ""; x.unbrauchbar = true; });
+            }
+          }
         }
       } catch (e) { }
 

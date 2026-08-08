@@ -20,7 +20,7 @@ Fällt der Anbieter aus, wird auf den Wortabgleich zurückgefallen, mit Hinweis.
 
 ### Zwei Messungen statt einer
 
-Die lexikalische Ebene bleibt aktiv, auch wenn Embeddings laufen. Wo beide auseinandergehen, ist das kein Widerspruch, sondern der eigentliche Befund — der neue Block **„Bedeutung trägt, Wortlaut fehlt"** zeigt Anfragen, für die semantisch eine Stelle existiert, deren Begriffe aber nirgends wörtlich stehen. Das war der Fall `cluburlaub spanien festland`: Position 2,6, das Wort „Festland" kommt auf der Seite nicht vor.
+Die lexikalische Ebene bleibt aktiv, auch wenn Embeddings laufen. Wo beide auseinandergehen, ist das kein Widerspruch, sondern der eigentliche Befund — der neue Block **„Bedeutung trägt, Wortlaut fehlt"** zeigt Anfragen, für die semantisch eine Stelle existiert, deren Begriffe aber nirgends wörtlich stehen. Ein Beispiel aus der Praxis: eine Anfrage mit einem geografischen Zusatz, die auf Position 2,6 steht, obwohl dieser Zusatz auf der Seite nirgends wörtlich vorkommt.
 
 ### Die Schwelle kommt jetzt aus der Wirklichkeit
 
@@ -36,13 +36,13 @@ Zerlegt wird in **geschätzten Token**, nicht in Zeichen — echte Pipelines rec
 
 **Überlappung** nimmt das Ende eines Abschnitts in den nächsten mit, damit ein Gedanke nicht an der Schnittkante zerreißt. Voreinstellung 15 %, wie in den meisten Pipelines. Der Seed wird aus **Sätzen** gebildet, nicht aus ganzen Absätzen — sonst sprengt ein einzelner Absatz das Budget um ein Vielfaches. Ist ein einzelner Satz zu lang, wird er an einer Wortgrenze gekürzt.
 
-Das hat eine Nebenwirkung, die mitgelöst werden musste: Überlappende Abschnitte teilen sich per Definition Text. Ohne Gegenmaßnahme meldet die Dublettenerkennung jedes Nachbarpaar. Jeder Abschnitt behält deshalb einen **Kern** ohne die geerbte Überlappung, und Dubletten werden nur auf den Kernen gemessen. An der ROBINSON-Seite gemessen: über den Volltext werden zwei Paare gemeldet, über die Kerne nur eines — das zweite war reines Artefakt der Überlappung.
+Das hat eine Nebenwirkung, die mitgelöst werden musste: Überlappende Abschnitte teilen sich per Definition Text. Ohne Gegenmaßnahme meldet die Dublettenerkennung jedes Nachbarpaar. Jeder Abschnitt behält deshalb einen **Kern** ohne die geerbte Überlappung, und Dubletten werden nur auf den Kernen gemessen. An einer echten Seite gemessen: über den Volltext werden zwei Paare gemeldet, über die Kerne nur eines — das zweite war reines Artefakt der Überlappung.
 
 ---
 
 ## Markensprache
 
-Manche Wörter fehlen absichtlich. ROBINSON betreibt Clubs, keine Hotels — „Hotel" gehört dort nicht auf die Seite, auch wenn Nutzer danach suchen. Ohne diese Information hätte das Tool empfohlen, den Begriff aufzunehmen, und damit gegen die Marke gearbeitet.
+Manche Wörter fehlen absichtlich. Ein Anbieter, der ausschließlich von „Clubs" spricht und den Begriff „Hotel" bewusst meidet, will ihn auch dann nicht auf der Seite haben, wenn Nutzer danach suchen. Ohne diese Information empfiehlt das Tool, den Begriff aufzunehmen — und arbeitet damit gegen die Marke.
 
 Trag solche Begriffe kommagetrennt in das Feld **Markensprache** ein. Drei Dinge passieren dann:
 
@@ -60,7 +60,7 @@ Für die Vorschlagsspalte gelten drei Regeln, alle nachgeprüft statt nur erbete
 - **Meta-Sätze werden erkannt und repariert.** Jeder Vorschlag läuft durch eine Prüfung auf Formulierungen über den Text statt für ihn. Schlägt sie an, wird einmal mit dem großen Modell neu formuliert; scheitert auch das, steht dort ehrlich „Kein brauchbarer Vorschlag" statt unbrauchbarer Fülltext mit Kopierknopf.
 - **Direkte Treffer ohne Schwäche bekommen keinen Vorschlag** — eine Paraphrase der bereits guten Stelle lädt nur zu sinnlosen Umformulierungen ein. Dort steht „Die Stelle trägt — kein Änderungsbedarf".
 
-Ein Nebenbefund aus der Praxis: Die ROBINSON-Spanienseite steht für `club hotels spanien` auf Position 4,3, obwohl das Wort nirgends vorkommt. Der Verzicht kostet dort nichts — Google schlägt die Brücke selbst. Wenn du den Begriff trotzdem bedienen willst, gehört er in eine Frage, die den Unterschied erklärt, nicht in die Selbstbeschreibung.
+Ein Nebenbefund aus der Praxis: Eine solche Seite kann für eine Anfrage mit dem gesperrten Begriff trotzdem auf Position 4 stehen, obwohl das Wort nirgends vorkommt — Google schlägt die Brücke selbst. Der Verzicht kostet dort also nichts. Wenn du den Begriff dennoch bedienen willst, gehört er in eine Frage, die den Unterschied erklärt, nicht in die Selbstbeschreibung.
 
 ---
 
